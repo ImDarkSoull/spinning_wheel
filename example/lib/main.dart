@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:spinning_wheel/controller/spin_controller.dart';
-import 'package:spinning_wheel/spinning_wheel.dart'; // Import your package
-import 'package:flutter/animation.dart'; // Animation controller
-import 'dart:math'; // For random number generation
+import 'package:spinning_wheel/controller/spinner_controller.dart';
+import 'package:spinning_wheel/spinning_wheel.dart';
 
 void main() {
   runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -30,7 +30,6 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen>
     with SingleTickerProviderStateMixin {
-
   // double _startRotation = 0.0;
   // double _endRotation = 0.0;
 
@@ -43,26 +42,26 @@ class _GameScreenState extends State<GameScreen>
   int _spinsRemaining = 5;
   bool _showConfetti = false;
 
-
   final List<WheelSegment> _segments = [
-    WheelSegment('+1 spin', const Color(0xFFEC8484), 1,path: 'assets/images/coala.png'), // Soft White
-    WheelSegment('50', const Color(0xFF1E88E5), 50,path: 'assets/images/bunny.png'), // Royal Blue
-     WheelSegment('200', const Color(0xFF00C853), 200,path:'assets/images/lion.png'), // Emerald Green
-     WheelSegment('10', const Color(0xFFFFD700), 10,path:'assets/images/cheeseMouse.png'), // Gold
-     WheelSegment('0', const Color(0xFFFF6D00), 0,path:'assets/images/elephent.png'), // Bright Orange
-     WheelSegment('LOSE ALL', const Color(0xFF4E342E), -9999,path: 'assets/images/bat.png'), // Deep Chocolate Brown
+    WheelSegment('+1 spin', const Color(0xFFEC8484), 1,
+        path: 'assets/images/coala.png'), // Soft White
+    WheelSegment('50', const Color(0xFF1E88E5), 50,
+        path: 'assets/images/bunny.png'), // Royal Blue
+    WheelSegment('200', const Color(0xFF00C853), 200,
+        path: 'assets/images/lion.png'), // Emerald Green
+    WheelSegment('10', const Color(0xFFFFD700), 10,
+        path: 'assets/images/cheeseMouse.png'), // Gold
+    WheelSegment('0', const Color(0xFFFF6D00), 0,
+        path: 'assets/images/elephent.png'), // Bright Orange
+    WheelSegment('LOSE ALL', const Color(0xFF4E342E), -9999,
+        path: 'assets/images/bat.png'), // Deep Chocolate Brown
   ];
-
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
   }
-
-
-
-
 
   void _spinWheel() {
     if (_isSpinning || _spinsRemaining <= 0) return;
@@ -72,14 +71,8 @@ class _GameScreenState extends State<GameScreen>
       _result = "Spinning...";
       _showConfetti = false;
     });
-    controller.startSpin();
-
+    controller.start();
   }
-
-
-
-
-
 
   void _showGameOverDialog() {
     Future.delayed(Duration(milliseconds: 500), () {
@@ -153,7 +146,6 @@ class _GameScreenState extends State<GameScreen>
       _showConfetti = false;
     });
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -256,7 +248,7 @@ class _GameScreenState extends State<GameScreen>
                     child: SpinnerWheel(
                       controller: controller,
                       segments: _segments,
-                      onComplete: (win,index) {
+                      onComplete: (win, index) {
                         print("index......$index");
                         setState(() {
                           if (win.value == -9999) {
@@ -286,39 +278,37 @@ class _GameScreenState extends State<GameScreen>
                       },
                     ),
                   ),
-                  SizedBox(height: 30,),
+                  SizedBox(
+                    height: 30,
+                  ),
                   AnimatedContainer(
                     duration: Duration(milliseconds: 300),
                     padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                     decoration: BoxDecoration(
-                      color:
-                      _showConfetti
+                      color: _showConfetti
                           ? Colors.amber.withValues(alpha: 0.9)
                           : Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color:
-                        _showConfetti
+                        color: _showConfetti
                             ? Colors.amber.shade700
                             : Colors.white.withValues(alpha: 0.3),
                       ),
-                      boxShadow:
-                      _showConfetti
+                      boxShadow: _showConfetti
                           ? [
-                        BoxShadow(
-                          color: Colors.amber.withValues(alpha: 0.5),
-                          blurRadius: 10,
-                          spreadRadius: 2,
-                        ),
-                      ]
+                              BoxShadow(
+                                color: Colors.amber.withValues(alpha: 0.5),
+                                blurRadius: 10,
+                                spreadRadius: 2,
+                              ),
+                            ]
                           : [],
                     ),
                     child: Text(
                       _result,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color:
-                        _showConfetti
+                        color: _showConfetti
                             ? Colors.brown.shade900
                             : Colors.white,
                         fontSize: 22,
@@ -326,21 +316,22 @@ class _GameScreenState extends State<GameScreen>
                       ),
                     ),
                   ),
-                  SizedBox(height: 20,),
+                  SizedBox(
+                    height: 20,
+                  ),
                   Padding(
                     padding: EdgeInsets.only(bottom: 10, top: 20),
                     child: AnimatedContainer(
                       duration: Duration(milliseconds: 200),
                       height: 60,
                       width: 250,
-                      transform:
-                      Matrix4.identity()..scale(_isSpinning ? 0.9 : 1.0),
-
+                      transform: Matrix4.identity()
+                        ..scale(_isSpinning ? 0.9 : 1.0),
                       child: ElevatedButton(
                         onPressed: _isSpinning ? null : _spinWheel,
                         style: ElevatedButton.styleFrom(
                           backgroundColor:
-                          _isSpinning ? Colors.grey : Colors.amber,
+                              _isSpinning ? Colors.grey : Colors.amber,
                           foregroundColor: Colors.brown.shade900,
                           padding: EdgeInsets.symmetric(
                             vertical: 15,

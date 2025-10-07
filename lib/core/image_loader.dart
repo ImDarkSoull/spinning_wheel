@@ -1,5 +1,7 @@
-import 'package:flutter/services.dart';
 import 'dart:ui' as ui;
+
+import 'package:flutter/services.dart';
+
 import '../models/wheel_segment.dart';
 
 Future<ui.Image> loadImage(String path) async {

@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
-import '../core/animation_handler.dart';
-import '../core/spin_calculations.dart';
+import 'package:spinning_wheel/controller/spinner_controller.dart';
+import 'package:spinning_wheel/controller/wheel_animation_controller.dart';
+import 'package:spinning_wheel/models/wheel_config.dart';
+
 import '../core/image_loader.dart';
-import '../widgets/wheel_display.dart';
 import '../models/wheel_segment.dart';
-import '../controller/spin_controller.dart';
+import '../widgets/wheel_display.dart';
 
 class SpinnerWheel extends StatefulWidget {
   final SpinnerController controller;
   final List<WheelSegment> segments;
-  final Function(WheelSegment,int) onComplete;
+  final Function(WheelSegment, int) onComplete;
+  final Duration? animationDuration;
   final Color? wheelColor;
+  final ImageProvider? wheelImage;
   final Color? indicatorColor;
   final Widget? centerChild;
   final Widget? indicator;
@@ -19,12 +21,19 @@ class SpinnerWheel extends StatefulWidget {
   final double? imageWidth;
   final TextStyle? labelStyle;
 
+  final Widget Function(BuildContext context)? loadingBuilder;
+  final Widget Function(BuildContext context)? errorBuilder;
+
   const SpinnerWheel({
     super.key,
     required this.controller,
     required this.segments,
     required this.onComplete,
+    this.animationDuration,
+    this.loadingBuilder,
+    this.errorBuilder,
     this.wheelColor,
+    this.wheelImage,
     this.indicatorColor,
     this.centerChild,
     this.indicator,
@@ -37,59 +46,75 @@ class SpinnerWheel extends StatefulWidget {
   State<SpinnerWheel> createState() => SpinnerWheelState();
 }
 
-class SpinnerWheelState extends State<SpinnerWheel> with SingleTickerProviderStateMixin {
-  List<WheelSegment> processedSegments = [];
-  late AnimationController _controller;
-  double _startRotation = 0.0, _endRotation = 0.0;
+class SpinnerWheelState extends State<SpinnerWheel>
+    with SingleTickerProviderStateMixin {
+  late Future<List<WheelSegment>> processedSegments;
+  
+  WheelAnimationController? _animationController;
+  WheelAnimationController? get animationController => _animationController;
 
   @override
   void initState() {
-    widget.controller.attachState(this);
-    processSegments();
-    _controller = createSpinController(this,(){
-      setState(() {
-        _startRotation = _endRotation % (2 * pi);
-        int wheelIndex = determineSegment(widget.segments,_endRotation);
-        widget.onComplete(widget.segments[wheelIndex],wheelIndex);
-      });
-    },(){setState(() {});});
+    processedSegments = loadSegmentImages(widget.segments);
+    widget.controller.attach(this);
     super.initState();
   }
 
-  void processSegments() async {
-    processedSegments = await loadSegmentImages(widget.segments);
-    if(mounted){
-      setState(() {});
-    }
+  void onSpinComplete(WheelSegment segment, int index) {
+    widget.onComplete(segment, index);
+    setState(() {});
   }
 
-  Future<void> startSpin() async {
-    _controller.reset();
-    final result = spinWheel(_startRotation);
-    _endRotation = result.end;
-    _controller.forward();
-  }
+  Future<void> start() async => await _animationController?.spin();
 
   @override
   void dispose() {
-    _controller.dispose();
+    _animationController?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return WheelDisplay(
-      controller: _controller,
-      segments: processedSegments,
-      startRotation: _startRotation,
-      endRotation: _endRotation,
-      centerChild: widget.centerChild,
-      indicator: widget.indicator,
-      wheelColor: widget.wheelColor,
-      indicatorColor: widget.indicatorColor,
-      imageHeight: widget.imageHeight,
-      imageWidth: widget.imageWidth,
-      labelStyle: widget.labelStyle,
+    return FutureBuilder<List<WheelSegment>>(
+      future: processedSegments,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          if (widget.loadingBuilder != null) {
+            return widget.loadingBuilder!(context);
+          }
+          return const Center(child: CircularProgressIndicator.adaptive());
+        }
+
+        if (snap.hasError) {
+          if (widget.errorBuilder != null) {
+            return widget.errorBuilder!(context);
+          }
+          return const Center(child: Text("Error loading segments"));
+        }
+
+        final segments = snap.data!;
+        _animationController ??= WheelAnimationController(
+          vsync: this,
+          onSpinComplete: onSpinComplete,
+          segments: segments,
+          duration: widget.animationDuration ?? const Duration(seconds: 5),
+        );
+
+        return WheelDisplay(
+          controller: _animationController!,
+          segments: segments,
+          config: WheelConfig().copyWith(
+            centerChild: widget.centerChild,
+            indicator: widget.indicator,
+            wheelColor: widget.wheelColor,
+            wheelImage: widget.wheelImage,
+            indicatorColor: widget.indicatorColor,
+            imageHeight: widget.imageHeight,
+            imageWidth: widget.imageWidth,
+            labelStyle: widget.labelStyle,
+          ),
+        );
+      },
     );
   }
 }
