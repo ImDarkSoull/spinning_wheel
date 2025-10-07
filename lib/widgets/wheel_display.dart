@@ -1,42 +1,29 @@
 import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:spinning_wheel/controller/wheel_animation_controller.dart';
+import 'package:spinning_wheel/models/wheel_config.dart';
 import 'package:spinning_wheel/widgets/wheel_painter.dart';
+
 import '../models/wheel_segment.dart';
 import 'indicator.dart';
 
 class WheelDisplay extends StatelessWidget {
-  final AnimationController controller;
+  final WheelAnimationController controller;
   final List<WheelSegment> segments;
-  final double startRotation;
-  final double endRotation;
-  final Widget? centerChild;
-  final Widget? indicator;
-  final Color? wheelColor;
-  final Color? indicatorColor;
-  final double? imageHeight;
-  final double? imageWidth;
-  final TextStyle? labelStyle;
-  final double minSize;
-  final double maxSize;
-  final double aspectRatio;
+  final WheelConfig config;
 
   const WheelDisplay({
     super.key,
     required this.controller,
     required this.segments,
-    required this.startRotation,
-    required this.endRotation,
-    this.centerChild,
-    this.indicator,
-    this.wheelColor,
-    this.indicatorColor,
-    this.imageHeight,
-    this.imageWidth,
-    this.labelStyle,
-    this.minSize = 100.0,
-    this.maxSize = double.infinity,
-    this.aspectRatio = 1.0,
+    required this.config,
   });
+
+  ImageProvider get _imageProvider {
+    if (config.wheelImage != null) return config.wheelImage!;
+    return const AssetImage("assets/images/wheel.png", package: "spinning_wheel");
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,12 +34,14 @@ class WheelDisplay extends StatelessWidget {
         double availableHeight = constraints.maxHeight;
 
         // Respect aspect ratio while fitting within constraints
-        double targetSize = min(availableWidth, availableHeight / aspectRatio);
-        targetSize = targetSize.clamp(minSize, maxSize);
+        double targetSize =
+            min(availableWidth, availableHeight / config.aspectRatio);
+        targetSize = targetSize.clamp(config.minSize, config.maxSize);
 
         // Ensure the widget fits within the available space
         double finalWidth = min(targetSize, availableWidth);
-        double finalHeight = min(targetSize * aspectRatio, availableHeight);
+        double finalHeight =
+            min(targetSize * config.aspectRatio, availableHeight);
         double size = min(finalWidth, finalHeight);
 
         return SizedBox(
@@ -60,7 +49,7 @@ class WheelDisplay extends StatelessWidget {
           height: constraints.maxHeight == double.infinity ? size : null,
           child: Center(
             child: AspectRatio(
-              aspectRatio: aspectRatio,
+              aspectRatio: config.aspectRatio,
               child: SizedBox(
                 width: size,
                 height: size,
@@ -87,10 +76,10 @@ class WheelDisplay extends StatelessWidget {
               height: size,
               child: FittedBox(
                 fit: BoxFit.contain,
-                child: Image.asset(
-                  'packages/spinning_wheel/assets/wheel.png',
+                child: Image(
+                  image: _imageProvider,
                   fit: BoxFit.contain,
-                  color: wheelColor,
+                  color: config.wheelColor,
                 ),
               ),
             ),
@@ -102,13 +91,13 @@ class WheelDisplay extends StatelessWidget {
                 animation: controller,
                 builder: (context, child) {
                   return Transform.rotate(
-                    angle: Tween(begin: startRotation, end: endRotation)
+                    angle: Tween(begin: controller.startRotation, end: controller.endRotation)
                         .animate(
-                      CurvedAnimation(
-                        parent: controller,
-                        curve: Curves.easeOutCirc,
-                      ),
-                    )
+                          CurvedAnimation(
+                            parent: controller,
+                            curve: Curves.easeOutCirc,
+                          ),
+                        )
                         .value,
                     child: Padding(
                       padding: EdgeInsets.all(size * 0.094),
@@ -116,8 +105,8 @@ class WheelDisplay extends StatelessWidget {
                         size: Size(size, size),
                         painter: WheelPainter(
                           segments,
-                          imageHeight: imageHeight ?? (size * 0.11),
-                          imageWidth: imageWidth ?? (size * 0.11),
+                          imageHeight: config.imageHeight ?? (size * 0.11),
+                          imageWidth: config.imageWidth ?? (size * 0.11),
                           style: _getResponsiveLabelStyle(size),
                         ),
                       ),
@@ -139,14 +128,14 @@ class WheelDisplay extends StatelessWidget {
   Widget _buildIndicator(double size) {
     return Positioned(
       top: size * 0.02, // More responsive positioning
-      child: indicator ??
+      child: config.indicator ??
           ClipPath(
             clipper: TriangleBottomClipper(),
             child: Container(
               width: size * 0.03,
               height: size * 0.15,
               decoration: BoxDecoration(
-                color: indicatorColor ?? Colors.red,
+                color: config.indicatorColor ?? Colors.red,
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.5),
@@ -190,7 +179,7 @@ class WheelDisplay extends StatelessWidget {
           ),
         ],
       ),
-      child: centerChild ??
+      child: config.centerChild ??
           Container(
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
@@ -207,7 +196,7 @@ class WheelDisplay extends StatelessWidget {
   }
 
   TextStyle? _getResponsiveLabelStyle(double size) {
-    if (labelStyle != null) return labelStyle;
+    if (config.labelStyle != null) return config.labelStyle;
 
     // Provide a default responsive text style
     return TextStyle(
