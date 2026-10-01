@@ -29,7 +29,7 @@
 * **Slice Padding**: Upgraded `slicePadding` to use `EdgeInsets` for precise radial and horizontal control inside segments.
 * **Layout Optimization**: Text labels now automatically calculate available width to prevent slice overlapping.
 
-## 0.1.0
+## 1.0.0
 **Breaking changes**
 * `WheelSegment<T>` and `SpinnerWheel<T>` are generic over the segment value. Lists typed as `List<WheelSegment>` now have `dynamic` values; use `List<WheelSegment<int>>`. See "Upgrading from 0.0.x" in the README.
 * Requires Flutter 3.27 / Dart 3.6 or newer.

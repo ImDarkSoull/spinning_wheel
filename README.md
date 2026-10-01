@@ -1,194 +1,270 @@
-# 🎡 Spinning Wheel - Flutter Package
+# 🎡 Spinning Wheel for Flutter
 
-[![pub package](https://img.shields.io/pub/v/spinning_wheel.svg)](https://pub.dev/packages/spinning_wheel) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![GitHub stars](https://img.shields.io/github/stars/nitesh695/spinning_wheel?style=social)](https://github.com/nitesh695/spinning_wheel)
+[![pub package](https://img.shields.io/pub/v/spinning_wheel.svg)](https://pub.dev/packages/spinning_wheel)
+[![pub points](https://img.shields.io/pub/points/spinning_wheel)](https://pub.dev/packages/spinning_wheel/score)
+[![likes](https://img.shields.io/pub/likes/spinning_wheel)](https://pub.dev/packages/spinning_wheel/score)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![GitHub stars](https://img.shields.io/github/stars/nitesh695/spinning_wheel?style=social)](https://github.com/nitesh695/spinning_wheel)
 
-
-A fully customizable spinning wheel for Flutter applications! Easily create fortune wheels, prize spinners, or game-based random selectors with smooth animations and custom segments.
-
-## 🌟 Features
-
-- ✅ **Fully customizable spinning wheel** 🎨
-- ✅ **Weighted Probability Support** (Control win frequencies) ⚖️
-- ✅ **Rigged or server-decided results** with `spinTo(index)` 🎯
-- ✅ **Swipe to spin & tap to spin** 👆
-- ✅ **Stop button support**, `isSpinning` and results you can `await` ⏱️
-- ✅ **Tick callbacks** for sounds and haptics as each slice passes 🔊
-- ✅ **Configurable spin**: duration, curve and number of turns 🌀
-- ✅ **Indicator on any side**, with an optional flick animation 📍
-- ✅ **Slices sized by probability**, flat or gradient fill, borders 🍕
-- ✅ **Winner highlight** 💡
-- ✅ **4 ready-made frames** (classic, royal, neon, wooden) **or your own** 🛞
-- ✅ **Images from assets, URLs or any `ImageProvider`**, with loading and error placeholders 🖼️🌐
-- ✅ **Any widget on a slice**, and per-slice text styles ✍️
-- ✅ **Advanced Label Styling** (rotation, ellipsis, fade, clipping) 🛡️
-- ✅ **Typed values**: `WheelSegment<String>`, `WheelSegment<MyPrize>`… 🧩
-- ✅ **Screen reader support** and right-to-left text ♿
-
-## 📸 Preview
+A customizable, animated **spinning wheel** widget for Flutter: build a **fortune wheel**, **wheel of fortune**, **prize wheel**, **lucky draw**, **spin-to-win** promotion or **random picker** in a few lines. Weighted odds, server-decided results, swipe to spin, haptic ticks, four ready-made frames, and it stays sharp and smooth at any size.
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/nitesh695/spinning_wheel/main/example/assets/images/img.png" alt="Spinning Wheel Demo" width="300" style="border-radius: 30px; border: 8px solid #222; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+  <img src="https://raw.githubusercontent.com/nitesh695/spinning_wheel/main/example/assets/images/img.png" alt="Spinning wheel demo" width="300">
 </div>
+
+## Contents
+
+- [Features](#-features)
+- [Installation](#-installation)
+- [Quick start](#-quick-start)
+- [Segments and probability](#-segments-and-probability)
+- [Controlling the spin](#-controlling-the-spin)
+- [How the spin feels](#-how-the-spin-feels)
+- [Interaction](#-interaction)
+- [Frames](#-frames)
+- [Slices and labels](#-slices-and-labels)
+- [Images and widgets on slices](#-images-and-widgets-on-slices)
+- [Accessibility](#-accessibility)
+- [Recipes](#-recipes)
+- [API reference](#-api-reference)
+- [Upgrading from 0.0.x](#-upgrading-from-00x)
+- [Example app](#-example-app)
+- [Contributing](#-contributing)
+- [License](#-license)
+
+## ✨ Features
+
+**Spinning**
+- 🎯 Weighted probabilities, or equal odds by default
+- 🖥️ Land on a result chosen in advance (for example by your server) with `spinTo(index)`
+- ⏹️ Stop a spin early, and `await` the result of any spin
+- 🌀 Choose the duration, easing curve and number of turns
+- 👀 Never looks like it is spinning backwards: speed is kept below the "wagon-wheel" effect
+
+**Interaction**
+- 👆 Tap the center to spin
+- 🤚 Drag the wheel around, and fling it to spin in that direction
+- 🔊 A callback for every slice that passes the pointer, for tick sounds and haptics
+- 📍 Put the pointer on any side, with an optional flick animation
+
+**Look**
+- 🛞 Four ready-made frames: classic, royal gold, neon and wooden ship's helm. You can also paint your own or use an image.
+- 🍕 Equal slices, or slices sized by their chance of winning
+- 🎨 Gradient or flat slices, slice borders, winner highlight
+- 🖼️ Images from assets, URLs or any `ImageProvider`, with loading and error placeholders
+- 🧩 Any widget on a slice, and a text style per slice
+- ✍️ Label rotation, wrapping, ellipsis, fading and clipping
+
+**Developer friendly**
+- 🔤 Typed values: `WheelSegment<String>`, `WheelSegment<MyPrize>`, ...
+- 📐 Responsive: fills the space it's given and scales everything with it
+- ♿ Screen reader support and right-to-left text
+- 📱 Pure Flutter, works on Android, iOS, web, macOS, Windows and Linux
 
 ## 📦 Installation
 
-Add this package to your `pubspec.yaml`:
+```sh
+flutter pub add spinning_wheel
+```
+
+Or add it to your `pubspec.yaml` yourself:
 
 ```yaml
 dependencies:
-  spinning_wheel: ^0.1.0
+  spinning_wheel: ^1.0.0
 ```
 
-Requires Flutter 3.27 or newer.
-
-## 🔧 Usage
-
-### 1️⃣ Import the Package
+Requires Flutter 3.27 (Dart 3.6) or newer. Then import it:
 
 ```dart
 import 'package:spinning_wheel/spinning_wheel.dart';
 ```
 
-### 2️⃣ Create a `SpinnerController`
+## 🚀 Quick start
+
+A complete screen with a wheel and a button:
 
 ```dart
-final SpinnerController controller = SpinnerController();
+import 'package:flutter/material.dart';
+import 'package:spinning_wheel/spinning_wheel.dart';
 
-@override
-void dispose() {
-  controller.dispose();
-  super.dispose();
+class PrizeWheelPage extends StatefulWidget {
+  const PrizeWheelPage({super.key});
+
+  @override
+  State<PrizeWheelPage> createState() => _PrizeWheelPageState();
+}
+
+class _PrizeWheelPageState extends State<PrizeWheelPage> {
+  final SpinnerController _controller = SpinnerController();
+
+  final List<WheelSegment<int>> _segments = [
+    WheelSegment('100', 100, color: Colors.red),
+    WheelSegment('200', 200, color: Colors.blue),
+    WheelSegment('500', 500, color: Colors.green),
+    WheelSegment('Try again', 0, color: Colors.grey),
+  ];
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 320,
+            height: 320,
+            child: SpinnerWheel<int>(
+              controller: _controller,
+              segments: _segments,
+              onComplete: (segment, index) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('You won ${segment.label}!')),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+          FilledButton(
+            onPressed: _controller.startSpin,
+            child: const Text('Spin'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 ```
 
-### 3️⃣ Define `Wheel Segments`
+The wheel fills the space its parent gives it, so give it a size (a `SizedBox`, `Expanded`, `AspectRatio`, ...). With no size limit at all, it uses 300 × 300.
+
+## 🎯 Segments and probability
+
+Each `WheelSegment` has a label, a value of any type, and optional color, probability, image, widget and text style:
 
 ```dart
-final List<WheelSegment<int>> segments = [
-  WheelSegment("Jackpot!", 1000, color: Colors.orange, probability: 0.05),
-  WheelSegment("Prize 2", 20, color: Colors.blue, probability: 0.3),
-  // Supports Network Images! 🌐
-  // No probability: shares what's left of 1.0 (here 0.45) with other such segments.
-  WheelSegment("Gift", 100, path: "https://example.com/gift_icon.png"),
-  WheelSegment("Empty", 0, color: Colors.grey, probability: 0.2),
+final segments = [
+  WheelSegment('Jackpot', 1000, color: Colors.amber, probability: 0.05),
+  WheelSegment('Prize', 20, color: Colors.blue, probability: 0.30),
+  WheelSegment('Gift', 100, path: 'https://example.com/gift.png'),
+  WheelSegment('Nothing', 0, color: Colors.grey, probability: 0.20),
 ];
 ```
 
-### 4️⃣ Add the `SpinnerWheel` Widget
+How the winner is picked:
 
-```dart
-SpinnerWheel(
-  controller: controller,
-  segments: segments,
-  slicePadding: const EdgeInsets.only(top: 20, bottom: 10, left: 5, right: 5),
-  labelStyle: const WheelLabelStyle(
-    labelStyle: TextStyle(
-      color: Colors.white,
-      fontWeight: FontWeight.bold,
-      fontSize: 14,
-    ),
-    overflow: TextOverflow.ellipsis, // Auto-handle long text
-    maxLines: 1,
-    angle: 0.0,
-  ),
-  onComplete: (result, index) {
-    print("You won: ${result.label}!");
-  },
-),
-```
+- If no segment sets `probability`, every segment is equally likely.
+- Segments without a `probability` share whatever is left of `1.0` equally. Above, "Gift" gets the remaining `0.45`.
+- If the explicit values already add up to `1.0` or more, segments without one can't win.
+- Negative values count as `0`.
+- Results use `Random.secure()`.
 
-### 5️⃣ Start Spinning!
-
-```dart
-controller.startSpin();
-
-// Or wait for the result:
-final result = await controller.startSpin();
-print('Landed on ${result?.segment.label}');
-```
-
-Calling `startSpin()` while the wheel is already spinning does not start a new spin.
+Without a `color`, a segment gets one picked from its label and value, so it stays the same across rebuilds.
 
 ## 🎮 Controlling the spin
 
+`SpinnerController` starts, steers and stops the wheel:
+
 ```dart
-// Land on a specific segment, e.g. one decided by your server.
+// Spin using the probabilities. Completes when the wheel stops.
+final WheelSpinResult? result = await controller.startSpin();
+print('Landed on ${result?.segment.label} (index ${result?.index})');
+
+// Land on a specific segment, e.g. one your server decided.
 await controller.spinTo(2);
 
-// Bring a spinning wheel to a quick stop on whatever segment it reaches.
+// Bring a spinning wheel to a quick stop on whatever it reaches.
 controller.stop();
+```
 
-// The controller is a ChangeNotifier, so you can rebuild on changes.
+The controller is a `ChangeNotifier`, so you can rebuild on `isSpinning` and `lastResult`:
+
+```dart
 ListenableBuilder(
   listenable: controller,
-  builder: (context, _) => ElevatedButton(
+  builder: (context, _) => FilledButton(
     onPressed: controller.isSpinning ? controller.stop : controller.startSpin,
     child: Text(controller.isSpinning ? 'Stop' : 'Spin'),
   ),
 );
 ```
 
-Tune how the wheel spins:
+Good to know:
+
+- Calling `startSpin()` or `spinTo()` while the wheel is spinning doesn't start a new spin; it returns the current spin's result.
+- `onComplete` is called when the wheel stops, before the future completes.
+- If the wheel is removed mid-spin, the future completes with `null`.
+- Dispose the controller when you're done with it.
+
+## 🌀 How the spin feels
 
 ```dart
 SpinnerWheel(
   // ...
-  spinDuration: const Duration(seconds: 3),
-  spinCurve: Curves.easeOutCubic,
-  minSpins: 3,
+  spinDuration: const Duration(seconds: 4),
+  spinCurve: Curves.easeOutCubic,   // Default: Curves.decelerate
+  minSpins: 3,                      // Whole turns before stopping
   maxSpins: 6,
-  onSpinStart: () => print('Here we go!'),
-  // Fires every time a new slice passes the indicator.
+  onSpinStart: () => print('Spinning...'),
   onSegmentPass: (index) => HapticFeedback.selectionClick(),
 );
 ```
 
-The wheel never turns faster than 40% of a slice per frame. Any faster and it looks like it is spinning backwards (the "wagon-wheel" effect). If the requested turns don't fit in `spinDuration` at that speed, the spin makes fewer turns, so wheels with many slices turn fewer times. Use a longer `spinDuration` for more turns. Curves that overshoot, like `Curves.easeOutBack` or `Curves.elasticOut`, turn the wheel backwards at the end on purpose.
+`onSegmentPass` fires for every slice that passes the pointer, in order, even when frames are dropped, so it's reliable for tick sounds and haptics.
+
+**Why the wheel sometimes makes fewer turns than `minSpins`.** On a screen that redraws 60 times a second, a wheel turning more than half a slice per frame looks like it's turning backwards (the "wagon-wheel" effect). The wheel never turns faster than 40% of a slice per frame. If the requested turns don't fit into `spinDuration` at that speed, it makes fewer turns, so wheels with many slices turn fewer times. A longer `spinDuration` allows more turns. Curves that overshoot, like `Curves.easeOutBack` or `Curves.elasticOut`, do turn backwards at the end on purpose.
 
 ## 👆 Interaction
 
 ```dart
 SpinnerWheel(
   // ...
-  tapToSpin: true,      // Tap the center to spin
-  swipeToSpin: true,    // Drag the wheel around, fling it to spin
-  indicatorPosition: IndicatorPosition.right,
-  indicatorBounce: true, // The pointer flicks as slices pass
+  tapToSpin: true,                            // Tap the center to spin
+  swipeToSpin: true,                          // Drag the wheel; fling it to spin
+  indicatorPosition: IndicatorPosition.right, // top, right, bottom or left
+  indicatorBounce: true,                      // The pointer flicks as slices pass
 );
 ```
 
-A fling spins the wheel in the direction you threw it. The result still follows the segments' probabilities. A custom `indicator` should be designed pointing down; it is rotated to point at the center from whichever side you choose.
+- A fling spins the wheel in the direction it was thrown, and the result still follows the probabilities.
+- A slow drag just turns the wheel.
+- A custom `indicator` widget should be designed pointing down; it's rotated to point at the center from whichever side you choose.
+- If the wheel sits inside a scrolling list, `swipeToSpin` competes with the list for drags.
 
-## 🎨 Visuals
+## 🛞 Frames
 
-### 🛞 Frames
-
-The frame around the wheel is painted, not an image, so it stays sharp at any size and scales with the wheel. Pick one of four ready-made frames:
+The frame around the wheel is painted, not an image, so it stays sharp at any size and scales with the wheel. There are four ready-made frames:
 
 ```dart
-SpinnerWheel(
-  // ...
-  frame: const WheelFrame.classic(),  // Red rim, silver teeth, gold studs (default)
-  // frame: const WheelFrame.royal(),  // Polished gold with gems and pearls
-  // frame: const WheelFrame.neon(),   // Glowing tubes on a dark ring
-  // frame: const WheelFrame.wooden(), // A ship's helm with wooden handles
-);
+frame: const WheelFrame.classic(), // Red rim, silver teeth, gold studs (default)
+frame: const WheelFrame.royal(),   // Polished gold set with gems and pearls
+frame: const WheelFrame.neon(),    // Two glowing tubes on a dark ring
+frame: const WheelFrame.wooden(),  // A ship's helm with turned wooden handles
 ```
 
 Each one can be recolored and tuned:
 
 ```dart
-const WheelFrame.classic(rimColor: Color(0xFF14532D), toothCount: 12, studCount: 12);
-const WheelFrame.royal(goldColor: Color(0xFFC0C6CC), gemColor: Color(0xFF1565C0), gemCount: 8);
-const WheelFrame.neon(color: Color(0xFF39FF14), secondaryColor: Color(0xFFFFEA00));
+const WheelFrame.classic(
+    rimColor: Color(0xFF14532D), toothCount: 12, studCount: 12);
+const WheelFrame.royal(
+    goldColor: Color(0xFFC0C6CC), gemColor: Color(0xFF1565C0), gemCount: 8);
+const WheelFrame.neon(
+    color: Color(0xFF39FF14), secondaryColor: Color(0xFFFFEA00));
 const WheelFrame.wooden(woodColor: Color(0xFF5D3A1A), handleCount: 6);
 ```
 
-Every frame sets how much room it needs around the slices and a matching pointer color. Override them with `wheelInset` and `indicatorColor`. `wheelColor: Colors.purple` is a shortcut for `frame: WheelFrame.classic(rimColor: Colors.purple)`.
+Every frame decides how much room it needs around the slices and suggests a matching pointer color. Override them with `wheelInset` and `indicatorColor`. `wheelColor: Colors.purple` is a shortcut for `frame: WheelFrame.classic(rimColor: Colors.purple)`.
 
-#### Your own frame
+### Paint your own frame
 
-Paint it yourself with `WheelFrame.custom`. `paintBack` draws behind the slices and `paintFront` over their edge. The `WheelFrameGeometry` tells you where the center, the outer edge and the slices' edge are, so your frame lines up at any size:
+`WheelFrame.custom` takes painting functions. `paintBack` draws behind the slices and `paintFront` over their edge. The `WheelFrameGeometry` gives you the center, the outer edge and the slices' edge, so your frame lines up at any size:
 
 ```dart
 void paintRing(Canvas canvas, WheelFrameGeometry g) {
@@ -200,26 +276,28 @@ void paintRing(Canvas canvas, WheelFrameGeometry g) {
 
 const myFrame = WheelFrame.custom(
   paintFront: paintRing,
-  preferredInset: 0.08,       // Room for the ring
+  preferredInset: 0.08, // Room for the ring, as a fraction of the size
   indicatorColor: Colors.amber,
 );
 ```
 
-Use top-level or static functions (not inline closures) so the frame isn't repainted on every rebuild. For more control, extend `WheelFrame` and override `paintBack`, `paintFront` and `preferredInset`. Helpers like `WheelFrame.paintDropShadow`, `WheelFrame.paintSliceShadow`, `WheelFrame.paintPlate` and `WheelFrame.paintStud` are there to reuse.
+- Use top-level or static functions, not inline closures, so the frame isn't repainted on every rebuild.
+- For full control, extend `WheelFrame` and override `paintBack`, `paintFront` and `preferredInset`.
+- `WheelFrame.paintDropShadow`, `paintSliceShadow`, `paintPlate` and `paintStud` are there to reuse.
 
-To use an image (or any widget) instead, pass it as `background`, and set `wheelInset` to fit its rim:
+### Use an image or any widget
 
 ```dart
 SpinnerWheel(
   // ...
   background: Image.asset('assets/my_frame.png', fit: BoxFit.contain),
-  wheelInset: 0.094,
+  wheelInset: 0.094, // Match the image's rim
 );
 ```
 
-`shouldDrawBackground: false` hides the frame.
+`shouldDrawBackground: false` hides the frame completely.
 
-### Slices
+## 🍕 Slices and labels
 
 ```dart
 SpinnerWheel(
@@ -230,145 +308,281 @@ SpinnerWheel(
   sliceBorderWidth: 2,
   highlightWinner: true,                 // Outline the winner, dim the rest
   highlightColor: Colors.yellow,
+  slicePadding: const EdgeInsets.only(top: 8, left: 4, right: 4),
+  labelStyle: const WheelLabelStyle(
+    labelStyle: TextStyle(color: Colors.white, fontSize: 14),
+    overflow: TextOverflow.ellipsis, // clip, ellipsis, fade or visible
+    maxLines: 2,
+    angle: 0.0,                      // Extra rotation, in radians
+  ),
 );
 ```
 
-Each segment can have its own text style, any widget in place of an image, and any `ImageProvider`:
+- With `SliceSizing.proportional`, a segment with probability `0` isn't drawn.
+- `clip`, `ellipsis` and `fade` keep each label inside its slice; `visible` lets it overflow.
+- `slicePadding.top` moves labels and images toward the center, `bottom` toward the rim, and `left`/`right` narrow the label.
+
+## 🧩 Images and widgets on slices
 
 ```dart
-WheelSegment('Star', 5, child: const Icon(Icons.star, color: Colors.white)),
-WheelSegment('Bold', 10, textStyle: const TextStyle(fontSize: 20)),
-WheelSegment('Photo', 15, imageProvider: FileImage(file)),
+WheelSegment('Lion', 1, path: 'assets/lion.png'),               // Asset
+WheelSegment('Gift', 2, path: 'https://example.com/gift.png'),  // URL
+WheelSegment('Photo', 3, imageProvider: FileImage(file)),       // Any ImageProvider
+WheelSegment('Star', 4, child: const Icon(Icons.star)),         // Any widget
+WheelSegment('Big', 5, textStyle: const TextStyle(fontSize: 22)),
 ```
 
-### Image loading
+- Images load in parallel and appear as they arrive.
+- Asset images use the device's 2x/3x versions.
+- Set the size with `imageWidth` and `imageHeight`.
 
-Images appear one by one as they load. Show something while they load or if they fail:
+Show something while they load, or if they fail:
 
 ```dart
 SpinnerWheel(
   // ...
   imagePlaceholder: const CircularProgressIndicator(strokeWidth: 2),
   imageErrorWidget: const Icon(Icons.broken_image),
-  onImageError: (segment, error) => print('${segment.label}: $error'),
+  onImageError: (segment, error) => debugPrint('${segment.label}: $error'),
 );
 ```
 
-### ⚖️ How probability works
+On the web, network images need the server to allow cross-origin requests (CORS).
 
-- If no segment sets `probability`, every segment is equally likely.
-- Segments without a `probability` share whatever is left of `1.0` equally.
-- If the explicit values already add up to `1.0` or more, segments without one can't win.
-- With `SliceSizing.proportional`, a segment with probability `0` is not drawn.
+## ♿ Accessibility
 
-### ♿ Accessibility
+- **Screen readers:** the wheel is announced as "Spinning wheel" (change it with `semanticsLabel`) along with its segments. While it spins it announces "Spinning", and then the result.
+- **Better descriptions:** use `WheelSegment.semanticLabel` when the label text alone isn't clear.
+- **Spinning without sight:** with `tapToSpin`, screen reader users can spin the wheel by activating it.
+- **Right-to-left text:** labels follow the app's text direction.
 
-The wheel is announced to screen readers as "Spinning wheel" (change it with `semanticsLabel`) along with its segments, and announces "Spinning" and the result as they happen. Use `WheelSegment.semanticLabel` for a better description than the label text. With `tapToSpin`, screen reader users can spin it by activating it. Labels follow the app's text direction, so right-to-left text works.
+## 🍳 Recipes
+
+**Prize decided by your server**
+
+```dart
+final int prizeIndex = await api.claimPrize(); // Your backend picks the prize
+final WheelSpinResult? result = await controller.spinTo(prizeIndex);
+showPrize(result!.segment.value);
+```
+
+**Random name picker or decision maker**
+
+```dart
+final names = ['Alice', 'Bob', 'Chen', 'Dana'];
+SpinnerWheel<String>(
+  controller: controller,
+  segments: [for (final n in names) WheelSegment(n, n)],
+  tapToSpin: true,
+  swipeToSpin: true,
+  highlightWinner: true,
+  onComplete: (segment, _) => print('Picked ${segment.value}'),
+);
+```
+
+**Coupon codes with your own type**
+
+```dart
+class Coupon {
+  final String code;
+  const Coupon(this.code);
+}
+
+SpinnerWheel<Coupon>(
+  controller: controller,
+  segments: [
+    WheelSegment('10% off', const Coupon('TEN'), probability: 0.6),
+    WheelSegment('Free ship', const Coupon('SHIP'), probability: 0.3),
+    WheelSegment('50% off', const Coupon('HALF'), probability: 0.1),
+  ],
+  sliceSizing: SliceSizing.proportional,
+  onComplete: (segment, _) => applyCoupon(segment.value.code),
+);
+```
+
+**Tick sound on every slice**
+
+```dart
+SpinnerWheel(
+  // ...
+  indicatorBounce: true,
+  onSegmentPass: (_) {
+    HapticFeedback.selectionClick();
+    tickPlayer.play(); // e.g. from the audioplayers package
+  },
+);
+```
+
+## 📖 API reference
+
+### SpinnerWheel
+
+**Required**
+
+| Property | Type | Description |
+|---|---|---|
+| `controller` | `SpinnerController` | Starts, steers and stops the wheel |
+| `segments` | `List<WheelSegment<T>>` | The slices |
+| `onComplete` | `void Function(WheelSegment<T>, int)` | Called when a spin ends, with the winner and its index |
+
+**Spinning**
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `spinDuration` | `Duration` | 5 seconds | How long a spin takes |
+| `spinCurve` | `Curve` | `Curves.decelerate` | Easing of button and tap spins |
+| `minSpins` / `maxSpins` | `int` | `5` / `9` | Range of whole turns per spin |
+| `onSpinStart` | `VoidCallback?` | | Called when any spin starts |
+| `onSegmentPass` | `void Function(int)?` | | Called for every slice that passes the pointer |
+
+**Interaction**
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `tapToSpin` | `bool` | `false` | Tap the center to spin |
+| `swipeToSpin` | `bool` | `false` | Drag the wheel and fling it to spin |
+| `indicatorPosition` | `IndicatorPosition` | `top` | Side the pointer sits on |
+| `indicatorBounce` | `bool` | `false` | Pointer flicks as slices pass |
+
+**Frame**
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `frame` | `WheelFrame?` | `WheelFrame.classic()` | The frame around the wheel |
+| `wheelColor` | `Color?` | | Rim color of the classic frame |
+| `wheelInset` | `double?` | the frame's | Gap between the wheel's edge and the slices, as a fraction of its size |
+| `background` | `Widget?` | | A widget (e.g. an image) in place of the frame |
+| `shouldDrawBackground` | `bool` | `true` | Show the frame or `background` |
+
+**Slices and labels**
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `sliceSizing` | `SliceSizing` | `equal` | `equal`, or `proportional` to probability |
+| `sliceStyle` | `SliceStyle` | `gradient` | `gradient` or `flat` fill |
+| `sliceBorderColor` | `Color?` | white | Color of slice dividers and outer ring |
+| `sliceBorderWidth` | `double` | `0` | Width of slice dividers and outer ring |
+| `highlightWinner` | `bool` | `false` | Outline the winning slice after a spin |
+| `highlightColor` | `Color` | white | Outline color of the winning slice |
+| `labelStyle` | `WheelLabelStyle?` | | Text style, rotation and overflow of labels |
+| `slicePadding` | `EdgeInsets` | `zero` | Padding for labels and images inside slices |
+
+**Images**
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `imageWidth` / `imageHeight` | `double?` | 11% of the wheel | Size of slice images and widgets |
+| `imagePlaceholder` | `Widget?` | | Shown while an image loads |
+| `imageErrorWidget` | `Widget?` | | Shown if an image fails to load |
+| `onImageError` | `void Function(WheelSegment<T>, Object)?` | | Called when an image fails to load |
+
+**Pointer, center and accessibility**
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `indicator` | `Widget?` | | Custom pointer, designed pointing down |
+| `indicatorColor` | `Color?` | the frame's, or red | Color of the default pointer |
+| `centerChild` | `Widget?` | | Custom widget in the center hub |
+| `semanticsLabel` | `String?` | `Spinning wheel` | Screen reader label |
+
+### SpinnerController
+
+| Member | Description |
+|---|---|
+| `Future<WheelSpinResult?> startSpin()` | Spins using the probabilities |
+| `Future<WheelSpinResult?> spinTo(int index)` | Spins and lands on `index` |
+| `void stop()` | Quickly stops a spinning wheel |
+| `bool isSpinning` | Whether the wheel is spinning |
+| `WheelSpinResult? lastResult` | The result of the last finished spin |
+| `bool isAttached` | Whether a wheel is using this controller |
+
+### WheelSegment\<T\>
+
+| Property | Type | Description |
+|---|---|---|
+| `label` | `String` | Text on the slice (required) |
+| `value` | `T` | Your value for this slice (required) |
+| `color` | `Color?` | Slice color; picked from the label if not set |
+| `probability` | `double?` | Chance of winning (see [probability](#-segments-and-probability)) |
+| `path` | `String?` | Asset path or `http(s)` URL of the slice image |
+| `imageProvider` | `ImageProvider?` | Any image provider; takes precedence over `path` |
+| `child` | `Widget?` | A widget shown in place of the image |
+| `textStyle` | `TextStyle?` | Merged on top of the wheel's label style |
+| `semanticLabel` | `String?` | Screen reader description; defaults to `label` |
+
+### WheelLabelStyle
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `labelStyle` | `TextStyle?` | bold, sized to the wheel | Text style of the labels |
+| `angle` | `double` | `0.0` | Extra rotation of the text, in radians |
+| `overflow` | `TextOverflow` | `clip` | `clip`, `ellipsis`, `fade` or `visible` |
+| `maxLines` | `int?` | `1` | Maximum lines per label |
+
+### WheelSpinResult\<T\>
+
+| Property | Type | Description |
+|---|---|---|
+| `segment` | `WheelSegment<T>` | The segment the wheel landed on |
+| `index` | `int` | Its index in `segments` |
+
+### Frames
+
+| Frame | Options |
+|---|---|
+| `WheelFrame.classic()` | `rimColor`, `rimHighlightColor`, `trimColor`, `studColor`, `toothCount`, `studCount`, `plateColor`, `shadow` |
+| `WheelFrame.royal()` | `goldColor`, `gemColor`, `gemCount`, `plateColor`, `shadow` |
+| `WheelFrame.neon()` | `color`, `secondaryColor`, `plateColor` |
+| `WheelFrame.wooden()` | `woodColor`, `brassColor`, `handleCount`, `shadow` |
+| `WheelFrame.custom()` | `paintFront`, `paintBack`, `preferredInset`, `indicatorColor` |
 
 ## 🔄 Upgrading from 0.0.x
 
-`WheelSegment` and `SpinnerWheel` now take a type for the segment value. If you wrote the list type without one, `value` becomes `dynamic`:
+Version 1.0.0 has a few breaking changes. See the [changelog](CHANGELOG.md) for everything.
+
+**Segment values are typed.** If you wrote the list type without one, `value` becomes `dynamic`:
 
 ```dart
 // Before: value was always an int
 List<WheelSegment> segments = [...];
-_score += win.value; // Error now: can't assign num to int
+score += win.value; // Error now: can't assign num to int
 
 // After: say what the values are
 List<WheelSegment<int>> segments = [...];
 ```
 
-In widget tests, `find.byType(SpinnerWheel)` only matches `SpinnerWheel<dynamic>`. Use `find.byType(SpinnerWheel<int>)` or `find.byWidgetPredicate((w) => w is SpinnerWheel)`.
+**Widget tests.** `find.byType(SpinnerWheel)` only matches `SpinnerWheel<dynamic>`. Use `find.byType(SpinnerWheel<int>)` or `find.byWidgetPredicate((w) => w is SpinnerWheel)`.
 
-## 📜 API Reference
+**Other changes**
+- `startSpin()` now completes when the wheel stops, not right away.
+- The frame is painted instead of an image, and `wheelColor` sets its rim color.
+- The default `spinCurve` is `Curves.decelerate`.
 
-### SpinnerWheel
+## 📱 Example app
 
-| Property            | Type                     | Description                                     | Default    |
-|---------------------|--------------------------|-------------------------------------------------|------------|
-| `controller`        | `SpinnerController`      | Controls the spin animation                     | Required   |
-| `segments`          | `List<WheelSegment<T>>`  | List of wheel segments (labels, colors, images) | Required   |
-| `onComplete`        | `void Function(WheelSegment<T>, int)` | Called when a spin completes       | Required   |
-| `onSpinStart`       | `VoidCallback?`          | Called when a spin starts                       | Optional   |
-| `onSegmentPass`     | `void Function(int)?`    | Called for every slice that passes the indicator | Optional   |
-| `spinDuration`      | `Duration`               | How long a spin takes                           | 5 seconds  |
-| `spinCurve`         | `Curve`                  | Easing of a spin                                | `decelerate` |
-| `minSpins` / `maxSpins` | `int`                | Range of whole turns per spin                   | `5` / `9`  |
-| `tapToSpin`         | `bool`                   | Tap the center to spin                          | `false`    |
-| `swipeToSpin`       | `bool`                   | Drag and fling to spin                          | `false`    |
-| `indicatorPosition` | `IndicatorPosition`      | Side the indicator sits on                      | `top`      |
-| `indicatorBounce`   | `bool`                   | Indicator flicks as slices pass                 | `false`    |
-| `sliceSizing`       | `SliceSizing`            | `equal` or `proportional` slice sizes           | `equal`    |
-| `sliceStyle`        | `SliceStyle`             | `gradient` or `flat` fill                       | `gradient` |
-| `sliceBorderColor`  | `Color?`                 | Color of slice dividers and outer ring          | white      |
-| `sliceBorderWidth`  | `double`                 | Width of slice dividers and outer ring          | `0` (none) |
-| `highlightWinner`   | `bool`                   | Highlight the winning slice after a spin        | `false`    |
-| `highlightColor`    | `Color`                  | Outline color of the winning slice              | white      |
-| `imagePlaceholder`  | `Widget?`                | Shown while a segment image loads               | Optional   |
-| `imageErrorWidget`  | `Widget?`                | Shown if a segment image fails to load          | Optional   |
-| `onImageError`      | `void Function(WheelSegment<T>, Object)?` | Called when an image fails to load | Optional |
-| `semanticsLabel`    | `String?`                | Screen reader label for the wheel               | `Spinning wheel` |
-| `labelStyle`        | `WheelLabelStyle?`       | Advanced styling for segment labels             | Optional   |
-| `slicePadding`      | `EdgeInsets`             | Padding inside slices (rim, center, and sides)  | `zero`     |
-| `imageWidth` / `imageHeight` | `double?`       | Size of segment images and widgets              | 11% of wheel |
-| `frame`             | `WheelFrame?`            | The frame around the wheel                      | `WheelFrame.classic()` |
-| `wheelColor`        | `Color?`                 | Rim color of the classic frame (shortcut)       | Optional   |
-| `wheelInset`        | `double?`                | Gap between wheel edge and segments (fraction of size) | the frame's own |
-| `indicatorColor`    | `Color?`                 | Color of the default indicator                  | the frame's own, or red |
-| `centerChild`       | `Widget?`                | Custom widget for the wheel center              | Optional   |
-| `indicator`         | `Widget?`                | Custom widget for the indicator                 | Optional   |
-| `background`        | `Widget?`                | Custom widget in place of the frame             | Optional   |
-| `shouldDrawBackground`| `bool`                 | Show the frame (or `background`)                | `true`     |
+The [example](example) app has five demos:
 
-### SpinnerController
+- **Prize game:** a complete game.
+- **Playground:** a live control for every option.
+- **Frames:** a gallery of all the frames.
+- **Server-decided result:** spins to a result picked in advance.
+- **Custom segments:** typed values, widgets and images on slices.
 
-| Member          | Description                                                        |
-|-----------------|--------------------------------------------------------------------|
-| `startSpin()`   | Spins using the probabilities; completes with the `WheelSpinResult` |
-| `spinTo(index)` | Spins and lands on the segment at `index`                          |
-| `stop()`        | Quickly stops a spinning wheel                                     |
-| `isSpinning`    | Whether the wheel is spinning                                      |
-| `lastResult`    | The result of the last finished spin                               |
-| `isAttached`    | Whether a wheel is using this controller                           |
+```sh
+cd example
+flutter run
+```
 
-### WheelSegment
+## 🤝 Contributing
 
-| Property        | Type             | Description                                          |
-|-----------------|------------------|------------------------------------------------------|
-| `label`         | `String`         | Text shown on the slice (required)                   |
-| `value`         | `T`              | Your value for this slice (required)                 |
-| `color`         | `Color?`         | Slice color; picked from the label if not set        |
-| `probability`   | `double?`        | Chance of winning (see above)                        |
-| `path`          | `String?`        | Asset path or `http(s)` URL of the slice image       |
-| `imageProvider` | `ImageProvider?` | Any image provider; takes precedence over `path`     |
-| `child`         | `Widget?`        | A widget shown in place of the image                 |
-| `textStyle`     | `TextStyle?`     | Merged on top of the wheel's label style             |
-| `semanticLabel` | `String?`        | Screen reader description; defaults to `label`       |
-
-### Frames
-
-| Frame | Options |
-|-------|---------|
-| `WheelFrame.classic()` | `rimColor`, `rimHighlightColor`, `trimColor`, `studColor`, `toothCount`, `studCount`, `plateColor`, `shadow` |
-| `WheelFrame.royal()`   | `goldColor`, `gemColor`, `gemCount`, `plateColor`, `shadow` |
-| `WheelFrame.neon()`    | `color`, `secondaryColor`, `plateColor` |
-| `WheelFrame.wooden()`  | `woodColor`, `brassColor`, `handleCount`, `shadow` |
-| `WheelFrame.custom()`  | `paintFront`, `paintBack`, `preferredInset`, `indicatorColor` |
-
-### WheelLabelStyle
-
-| Property     | Type          | Description                                           | Default |
-|--------------|---------------|-------------------------------------------------------|---------|
-| `labelStyle` | `TextStyle?`  | The theme/style of the text                           | Default |
-| `angle`      | `double`      | Additional rotation for the text (in radians)         | `0.0`   |
-| `overflow`   | `TextOverflow`| Long text handling: `clip`, `ellipsis` and `fade` keep the label inside its slice, `visible` lets it overflow | `clip`  |
-| `maxLines`   | `int?`        | Maximum number of lines for the label                 | `1`     |
+Bug reports, ideas and pull requests are welcome on [GitHub](https://github.com/nitesh695/spinning_wheel/issues). If this package helps you, please give it a ⭐ on [GitHub](https://github.com/nitesh695/spinning_wheel) and a 👍 on [pub.dev](https://pub.dev/packages/spinning_wheel).
 
 ## 📄 License
 
-This package is licensed under the **MIT License**.
+MIT. See [LICENSE](LICENSE).
 
-## 🙏 Support
+---
 
-If you like this package, ⭐ **Star it on [GitHub](https://github.com/nitesh695/spinning_wheel)**!  
-For issues or feature requests, open an issue on [GitHub](https://github.com/nitesh695/spinning_wheel/issues).
+**Keywords:** flutter spinning wheel, fortune wheel, wheel of fortune, spin the wheel, prize wheel, lucky wheel, lucky draw, spin to win, roulette wheel, random picker, random name picker, decision wheel, raffle, giveaway, gamification, rewards, coupon wheel.
+
+#flutter #dart #flutterpackage #flutterwidget #spinningwheel #spinwheel #fortunewheel #wheeloffortune #spinthewheel #luckywheel #luckydraw #prizewheel #spintowin #roulette #randompicker #decisionwheel #giveaway #raffle #gamification #flutterui #flutteranimation #mobilegame
