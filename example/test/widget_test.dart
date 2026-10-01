@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spinning_wheel/spinning_wheel.dart';
 import 'package:spinning_wheel_example/main.dart';
+import 'package:spinning_wheel_example/frames/candy_frame.dart';
 import 'package:spinning_wheel_example/screens/custom_segments_screen.dart';
+import 'package:spinning_wheel_example/screens/frames_screen.dart';
 import 'package:spinning_wheel_example/screens/game_screen.dart';
 import 'package:spinning_wheel_example/screens/playground_screen.dart';
 import 'package:spinning_wheel_example/screens/server_result_screen.dart';
@@ -36,12 +38,14 @@ void main() {
     for (final title in [
       'Prize game',
       'Playground',
+      'Frames',
       'Server-decided result',
       'Custom segments',
     ]) {
       await tester.scrollUntilVisible(find.text(title), 100);
       expect(find.text(title), findsOneWidget);
     }
+    await tester.scrollUntilVisible(find.text('Playground'), -100);
     await _tapVisible(tester, find.text('Playground'));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
@@ -162,5 +166,60 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('You won: Star'), findsOneWidget);
     expect(find.text('Code: STAR-30'), findsOneWidget);
+  });
+
+  group('frames', () {
+    testWidgets('the gallery shows every frame and spins on tap',
+        (tester) async {
+      await _pumpScreen(tester, const FramesScreen());
+      final List<String> titles = [
+        'Classic',
+        'Royal',
+        'Neon',
+        'Wooden',
+        'Classic, recolored',
+        'Royal, silver & sapphire',
+        'Custom painted',
+        'Your own image',
+      ];
+      for (final title in titles) {
+        await tester.scrollUntilVisible(find.text(title), 200);
+        expect(find.text(title), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+
+      await tester.scrollUntilVisible(find.text('Classic'), -200);
+      final wheel = find.byWidgetPredicate((w) => w is SpinnerWheel).first;
+      final controller = tester.widget<SpinnerWheel<int>>(wheel).controller;
+      await tester.ensureVisible(wheel);
+      await tester.pump();
+      await tester.tapAt(tester.getCenter(wheel));
+      await tester.pump();
+      expect(controller.isSpinning, isTrue);
+      await tester.pump(const Duration(seconds: 4));
+      expect(controller.isSpinning, isFalse);
+    });
+
+    testWidgets('the playground switches between frames', (tester) async {
+      await _pumpScreen(tester, const PlaygroundScreen());
+      WheelFrame frame() =>
+          tester.widget<SpinnerWheel<int>>(_wheel).effectiveFrame;
+      expect(frame(), isA<ClassicWheelFrame>());
+
+      for (final (name, type) in [
+        ('Royal', RoyalWheelFrame),
+        ('Neon', NeonWheelFrame),
+        ('Wooden', WoodenWheelFrame),
+      ]) {
+        await _tapVisible(tester, find.widgetWithText(ChoiceChip, name));
+        await tester.pump();
+        expect(frame().runtimeType, type);
+      }
+      await _tapVisible(
+          tester, find.widgetWithText(ChoiceChip, 'Candy (custom)'));
+      await tester.pump();
+      expect(frame(), same(candyFrame));
+      expect(tester.takeException(), isNull);
+    });
   });
 }

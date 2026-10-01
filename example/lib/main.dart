@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'screens/custom_segments_screen.dart';
+import 'screens/frames_screen.dart';
 import 'screens/game_screen.dart';
 import 'screens/playground_screen.dart';
 import 'screens/server_result_screen.dart';
@@ -42,10 +43,17 @@ final List<_Demo> _demos = [
   ),
   _Demo(
     'Playground',
-    'Try every option live: indicator side, slice sizes and styles, rim '
-        'lights, spin speed, label overflow, right-to-left and more.',
+    'Try every option live: frames, indicator side, slice sizes and '
+        'styles, spin speed, label overflow, right-to-left and more.',
     Icons.tune,
     (_) => const PlaygroundScreen(),
+  ),
+  _Demo(
+    'Frames',
+    'Four ready-made frames, recolored versions, a custom-painted frame '
+        'and an image used as a frame.',
+    Icons.circle_outlined,
+    (_) => const FramesScreen(),
   ),
   _Demo(
     'Server-decided result',

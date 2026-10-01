@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:spinning_wheel/core/spin_calculations.dart';
 import 'package:spinning_wheel/core/wheel_geometry.dart';
 import 'package:spinning_wheel/spinning_wheel.dart';
+import 'package:spinning_wheel/widgets/wheel_frame_painter.dart';
 import 'package:spinning_wheel/widgets/wheel_painter.dart';
 
 /// A 1x1 transparent PNG.
@@ -108,6 +109,44 @@ void main() {
             expect(clockwise ? travelled : -travelled,
                 greaterThanOrEqualTo(3 * 2 * pi));
             expect(clockwise ? travelled : -travelled, lessThan(4 * 2 * pi));
+          }
+        }
+      }
+    });
+
+    test('slicesEntered matches stepping through slowly', () {
+      final random = Random(7);
+      for (final geometry in [
+        WheelGeometry.equal(6),
+        WheelGeometry.weighted([1, 0, 2, 3, 0.5]),
+        WheelGeometry.equal(1),
+      ]) {
+        for (int trial = 0; trial < 50; trial++) {
+          final double from = random.nextDouble() * 20 - 10;
+          final double to = from + random.nextDouble() * 30 - 15;
+          final big = geometry.slicesEntered(from, to, -pi / 2);
+          // The same turn in tiny steps, noting each change of slice.
+          final small = <int>[];
+          int last = geometry.indexAt(from, -pi / 2);
+          const int steps = 20000;
+          for (int k = 1; k <= steps; k++) {
+            final int now =
+                geometry.indexAt(from + (to - from) * k / steps, -pi / 2);
+            if (now != last) small.add(now);
+            last = now;
+          }
+          if (geometry.length > 1) {
+            expect(big, small, reason: 'from $from to $to');
+          } else {
+            // One slice: entered again each time its one edge passes the
+            // pointer, which depends on where the turn starts.
+            final int turns = ((to - from).abs() / (2 * pi)).floor();
+            expect(big.length, inInclusiveRange(turns, turns + 1),
+                reason: 'from $from to $to');
+          }
+          if (geometry.sweeps.length > 1 && geometry.sweeps[1] == 0) {
+            expect(big, isNot(contains(1)),
+                reason: 'zero-size slices are never entered');
           }
         }
       }
@@ -344,6 +383,39 @@ void main() {
       for (int i = 1; i < passes.length; i++) {
         expect(passes[i], isNot(passes[i - 1]));
       }
+    });
+
+    testWidgets('onSegmentPass reports every slice even if frames drop',
+        (tester) async {
+      final controller = SpinnerController();
+      final passes = <int>[];
+      await _pumpWheel(
+          tester,
+          SpinnerWheel(
+            controller: controller,
+            segments: _segments(6),
+            minSpins: 2,
+            maxSpins: 2,
+            onSegmentPass: passes.add,
+            onComplete: (_, __) {},
+          ));
+      final future = controller.startSpin();
+      await tester.pump();
+      // The whole spin in a single frame.
+      await tester.pump(const Duration(seconds: 6));
+      final result = (await future)!;
+      expect(passes.length, greaterThanOrEqualTo(12));
+      expect(passes.length, lessThan(19));
+      for (int i = 1; i < passes.length; i++) {
+        // Clockwise: one slice back each time.
+        expect(passes[i], (passes[i - 1] - 1) % 6);
+      }
+      expect(passes.last, result.index);
+
+      // Settling after the spin isn't counted as more turns.
+      final int count = passes.length;
+      await tester.pump(const Duration(seconds: 1));
+      expect(passes.length, count);
     });
 
     testWidgets('generic values come back typed', (tester) async {
@@ -728,6 +800,224 @@ void main() {
         textDirection: TextDirection.rtl,
       );
       expect(_painter(tester).textDirection, TextDirection.rtl);
+    });
+  });
+
+  group('frame', () {
+    List<WheelFramePainter> framePainters(WidgetTester tester) => tester
+        .widgetList<CustomPaint>(find.byType(CustomPaint))
+        .map((p) => p.painter)
+        .whereType<WheelFramePainter>()
+        .toList();
+
+    testWidgets('the classic frame is painted behind and in front by default',
+        (tester) async {
+      await _pumpWheel(
+          tester,
+          SpinnerWheel(
+              controller: SpinnerController(),
+              segments: _segments(4),
+              onComplete: (_, __) {}));
+      final painters = framePainters(tester);
+      expect(painters.map((p) => p.layer),
+          [WheelFrameLayer.back, WheelFrameLayer.front]);
+      expect(painters.first.frame, const WheelFrame.classic());
+      expect(painters.first.inset, 0.094);
+    });
+
+    testWidgets('wheelColor sets the rim color, frame wins over it',
+        (tester) async {
+      await _pumpWheel(
+          tester,
+          SpinnerWheel(
+              controller: SpinnerController(),
+              segments: _segments(4),
+              wheelColor: Colors.purple,
+              onComplete: (_, __) {}));
+      expect(framePainters(tester).first.frame,
+          const WheelFrame.classic(rimColor: Colors.purple));
+
+      await _pumpWheel(
+          tester,
+          SpinnerWheel(
+              controller: SpinnerController(),
+              segments: _segments(4),
+              wheelColor: Colors.purple,
+              frame: const WheelFrame.neon(),
+              onComplete: (_, __) {}));
+      expect(framePainters(tester).first.frame, const WheelFrame.neon());
+    });
+
+    for (final frame in const [
+      WheelFrame.classic(),
+      WheelFrame.royal(),
+      WheelFrame.neon(),
+      WheelFrame.wooden(),
+    ]) {
+      testWidgets('${frame.runtimeType} sets the inset and pointer color',
+          (tester) async {
+        await _pumpWheel(
+            tester,
+            SpinnerWheel(
+                controller: SpinnerController(),
+                segments: _segments(4),
+                frame: frame,
+                onComplete: (_, __) {}));
+        expect(framePainters(tester).first.inset, frame.preferredInset);
+        final wheel = tester.widget<SpinnerWheel<int>>(_wheelFinder);
+        expect(wheel.effectiveWheelInset, frame.preferredInset);
+        // The default pointer uses the frame's color.
+        final Iterable<Color?> colors = tester
+            .widgetList<Container>(find.descendant(
+                of: find.byType(RotatedBox), matching: find.byType(Container)))
+            .map((c) => (c.decoration as BoxDecoration?)?.color);
+        expect(colors, contains(frame.indicatorColor ?? Colors.red));
+      });
+    }
+
+    testWidgets('wheelInset and indicatorColor override the frame',
+        (tester) async {
+      await _pumpWheel(
+          tester,
+          SpinnerWheel(
+              controller: SpinnerController(),
+              segments: _segments(4),
+              frame: const WheelFrame.wooden(),
+              wheelInset: 0.05,
+              indicatorColor: Colors.green,
+              onComplete: (_, __) {}));
+      expect(framePainters(tester).first.inset, 0.05);
+      final Iterable<Color?> colors = tester
+          .widgetList<Container>(find.descendant(
+              of: find.byType(RotatedBox), matching: find.byType(Container)))
+          .map((c) => (c.decoration as BoxDecoration?)?.color);
+      expect(colors, contains(Colors.green));
+    });
+
+    testWidgets('a custom frame gets geometry that matches the slices',
+        (tester) async {
+      final calls = <String>[];
+      WheelFrameGeometry? front;
+      await _pumpWheel(
+          tester,
+          SpinnerWheel(
+            controller: SpinnerController(),
+            segments: _segments(4),
+            frame: WheelFrame.custom(
+              paintBack: (canvas, g) => calls.add('back'),
+              paintFront: (canvas, g) {
+                calls.add('front');
+                front = g;
+              },
+              preferredInset: 0.12,
+              indicatorColor: Colors.teal,
+            ),
+            onComplete: (_, __) {},
+          ));
+      expect(calls, containsAllInOrder(['back', 'front']));
+      // The wheel is 300 wide: radius 150, slices inset by 12% of 300.
+      expect(front!.radius, 150);
+      expect(front!.sliceRadius, closeTo(150 - 300 * 0.12, 1e-9));
+      expect(front!.center, const Offset(150, 150));
+    });
+
+    testWidgets('a custom background or shouldDrawBackground: false removes it',
+        (tester) async {
+      await _pumpWheel(
+          tester,
+          SpinnerWheel(
+              controller: SpinnerController(),
+              segments: _segments(4),
+              frame: const WheelFrame.wooden(),
+              background: const ColoredBox(color: Colors.black),
+              onComplete: (_, __) {}));
+      expect(framePainters(tester), isEmpty);
+      expect(find.byType(ColoredBox), findsWidgets);
+      // Without the frame, the frame's inset doesn't apply.
+      expect(tester.widget<SpinnerWheel<int>>(_wheelFinder).effectiveWheelInset,
+          0.094);
+
+      await _pumpWheel(
+          tester,
+          SpinnerWheel(
+              controller: SpinnerController(),
+              segments: _segments(4),
+              shouldDrawBackground: false,
+              onComplete: (_, __) {}));
+      expect(framePainters(tester), isEmpty);
+    });
+
+    testWidgets('the rim does not block swipes', (tester) async {
+      final controller = SpinnerController();
+      await _pumpWheel(
+          tester,
+          SpinnerWheel(
+            controller: controller,
+            segments: _segments(6),
+            swipeToSpin: true,
+            onComplete: (_, __) {},
+          ));
+      // Start on the rim, outside the slices.
+      final Offset center = tester.getCenter(_wheelFinder);
+      await tester.flingFrom(
+          center + const Offset(-40, -137), const Offset(100, 0), 2000);
+      await tester.pump();
+      expect(controller.isSpinning, isTrue);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('every frame paints at any size, inset and option',
+        (tester) async {
+      const frames = [
+        WheelFrame.classic(),
+        WheelFrame.classic(toothCount: 0, studCount: 0, shadow: false),
+        WheelFrame.classic(toothCount: 24, studCount: 3),
+        WheelFrame.royal(),
+        WheelFrame.royal(gemCount: 0, shadow: false),
+        WheelFrame.neon(),
+        WheelFrame.wooden(),
+        WheelFrame.wooden(handleCount: 0, shadow: false),
+        WheelFrame.wooden(handleCount: 20),
+      ];
+      for (final size in [60.0, 150.0, 300.0, 900.0]) {
+        for (final inset in [0.0, 0.03, null, 0.3]) {
+          for (final frame in frames) {
+            await tester.pumpWidget(MaterialApp(
+              home: Center(
+                child: SizedBox(
+                  width: size,
+                  height: size,
+                  child: SpinnerWheel(
+                    controller: SpinnerController(),
+                    segments: _segments(5),
+                    wheelInset: inset,
+                    frame: frame,
+                    onComplete: (_, __) {},
+                  ),
+                ),
+              ),
+            ));
+            expect(tester.takeException(), isNull,
+                reason: '$frame, size $size, inset $inset');
+          }
+        }
+      }
+    });
+
+    test('frames have value equality and copyWith', () {
+      expect(const WheelFrame.royal(gemCount: 6),
+          const WheelFrame.royal(gemCount: 6));
+      expect(const WheelFrame.royal(gemCount: 6).hashCode,
+          const WheelFrame.royal(gemCount: 6).hashCode);
+      expect(const WheelFrame.royal(), isNot(const WheelFrame.neon()));
+      const classic = ClassicWheelFrame(rimColor: Colors.blue);
+      expect(classic.copyWith(studCount: 3).studCount, 3);
+      expect(classic.copyWith(studCount: 3).rimColor, Colors.blue);
+      expect(
+          const NeonWheelFrame().copyWith(color: Colors.red).color, Colors.red);
+      expect(const WoodenWheelFrame().copyWith(handleCount: 4).handleCount, 4);
+      expect(const RoyalWheelFrame().copyWith(gemColor: Colors.green),
+          const WheelFrame.royal(gemColor: Colors.green));
     });
   });
 

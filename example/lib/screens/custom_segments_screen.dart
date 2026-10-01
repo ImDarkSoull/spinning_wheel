@@ -124,6 +124,13 @@ class _CustomSegmentsScreenState extends State<CustomSegmentsScreen> {
               controller: _controller,
               segments: _segments,
               semanticsLabel: 'Reward wheel',
+              // A themed frame: navy rim, silver studs, 12 teeth.
+              frame: const WheelFrame.classic(
+                rimColor: Color(0xFF1E3A8A),
+                studColor: Color(0xFFE5E7EB),
+                toothCount: 12,
+                studCount: 12,
+              ),
               sliceSizing: SliceSizing.proportional,
               sliceStyle: SliceStyle.flat,
               sliceBorderColor: Colors.white,

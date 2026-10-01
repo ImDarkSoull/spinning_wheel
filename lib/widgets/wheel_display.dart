@@ -8,6 +8,7 @@ import '../models/wheel_label_style.dart';
 import '../models/wheel_options.dart';
 import '../spinner_wheel.dart';
 import 'indicator.dart';
+import 'wheel_frame_painter.dart';
 import 'wheel_painter.dart';
 
 /// Internal widget that handles the layout and rendering of the wheel components.
@@ -156,22 +157,13 @@ class WheelDisplay extends StatelessWidget {
         Stack(
           alignment: Alignment.center,
           children: [
-            // Wheel background image
+            // The user's background, or the back of the default frame.
             if (config.shouldDrawBackground)
               SizedBox(
                 width: size,
                 height: size,
                 child: config.background ??
-                    FittedBox(
-                      fit: BoxFit.contain,
-                      child: Image.asset(
-                        'assets/wheel.png',
-                        package: 'spinning_wheel',
-                        fit: BoxFit.contain,
-                        color: config.wheelColor,
-                        colorBlendMode: config.wheelColorBlendMode,
-                      ),
-                    ),
+                    CustomPaint(painter: _framePainter(WheelFrameLayer.back)),
               ),
             // Rotating wheel content
             SizedBox(
@@ -181,7 +173,7 @@ class WheelDisplay extends StatelessWidget {
                 animation: animation,
                 child: RepaintBoundary(
                   child: Padding(
-                    padding: EdgeInsets.all(size * config.wheelInset),
+                    padding: EdgeInsets.all(size * config.effectiveWheelInset),
                     child: _buildSlices(context, size),
                   ),
                 ),
@@ -194,6 +186,16 @@ class WheelDisplay extends StatelessWidget {
                 },
               ),
             ),
+            // The front of the default frame, over the slices' edge.
+            if (_drawsDefaultFrame)
+              IgnorePointer(
+                child: SizedBox(
+                  width: size,
+                  height: size,
+                  child: CustomPaint(
+                      painter: _framePainter(WheelFrameLayer.front)),
+                ),
+              ),
           ],
         ),
         // Indicator
@@ -218,7 +220,7 @@ class WheelDisplay extends StatelessWidget {
 
   /// The painted slices plus any per-segment widgets, rotating together.
   Widget _buildSlices(BuildContext context, double size) {
-    final double innerSize = size * (1 - 2 * config.wheelInset);
+    final double innerSize = size * (1 - 2 * config.effectiveWheelInset);
     final double imageWidth = config.imageWidth ?? (size * 0.11);
     final double imageHeight = config.imageHeight ?? (size * 0.11);
 
@@ -282,6 +284,13 @@ class WheelDisplay extends StatelessWidget {
     );
   }
 
+  bool get _drawsDefaultFrame => config.drawsFrame;
+
+  WheelFramePainter _framePainter(WheelFrameLayer layer) => WheelFramePainter(
+      frame: config.effectiveFrame,
+      inset: config.effectiveWheelInset,
+      layer: layer);
+
   Widget _buildIndicator(double size) {
     Widget pointer = config.indicator ??
         ClipPath(
@@ -290,7 +299,11 @@ class WheelDisplay extends StatelessWidget {
             width: size * 0.03,
             height: size * 0.15,
             decoration: BoxDecoration(
-              color: config.indicatorColor ?? Colors.red,
+              color: config.indicatorColor ??
+                  (config.drawsFrame
+                      ? config.effectiveFrame.indicatorColor
+                      : null) ??
+                  Colors.red,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.5),

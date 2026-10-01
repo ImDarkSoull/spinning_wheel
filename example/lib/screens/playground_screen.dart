@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:spinning_wheel/spinning_wheel.dart';
 
+import '../frames/candy_frame.dart';
 import '../widgets/spin_stop_button.dart';
 
 /// Every [SpinnerWheel] option on one screen, so you can see what each does.
@@ -19,11 +20,13 @@ class _PlaygroundScreenState extends State<PlaygroundScreen> {
     'linear': Curves.linear,
   };
 
-  static const Map<String, Color?> _tints = {
-    'None': null,
-    'Purple': Colors.purple,
-    'Teal': Colors.teal,
-  };
+  static const List<String> _frameNames = [
+    'Classic',
+    'Royal',
+    'Neon',
+    'Wooden',
+    'Candy (custom)',
+  ];
 
   final SpinnerController _controller = SpinnerController();
 
@@ -51,9 +54,12 @@ class _PlaygroundScreenState extends State<PlaygroundScreen> {
 
   // Wheel
   bool _drawBackground = true;
-  double _wheelInset = 0.094;
-  String _tint = _tints.keys.first;
-  bool _solidTint = false;
+  // Null uses the frame's preferred inset.
+  double? _wheelInset;
+  String _frame = _frameNames.first;
+  // Teeth and studs, gems or handles, depending on the frame.
+  double _decorations = 8;
+  bool _frameShadow = true;
 
   // Labels
   TextOverflow _overflow = TextOverflow.ellipsis;
@@ -81,6 +87,27 @@ class _PlaygroundScreenState extends State<PlaygroundScreen> {
       _segments = _buildSegments();
     });
   }
+
+  WheelFrame _buildFrame() {
+    final int count = _decorations.round();
+    return switch (_frame) {
+      'Royal' => WheelFrame.royal(gemCount: count, shadow: _frameShadow),
+      'Neon' => const WheelFrame.neon(),
+      'Wooden' => WheelFrame.wooden(handleCount: count, shadow: _frameShadow),
+      'Candy (custom)' => candyFrame,
+      _ => WheelFrame.classic(
+          toothCount: count, studCount: count, shadow: _frameShadow),
+    };
+  }
+
+  /// What the decorations slider changes for the current frame, if
+  /// anything.
+  String? get _decorationsLabel => switch (_frame) {
+        'Classic' => 'Teeth and studs',
+        'Royal' => 'Gems',
+        'Wooden' => 'Handles',
+        _ => null,
+      };
 
   List<WheelSegment<int>> _buildSegments() {
     return [
@@ -120,8 +147,7 @@ class _PlaygroundScreenState extends State<PlaygroundScreen> {
       highlightColor: Colors.yellowAccent,
       shouldDrawBackground: _drawBackground,
       wheelInset: _wheelInset,
-      wheelColor: _tints[_tint],
-      wheelColorBlendMode: _solidTint ? BlendMode.srcIn : BlendMode.modulate,
+      frame: _buildFrame(),
       labelStyle: WheelLabelStyle(
         labelStyle: const TextStyle(
             color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
@@ -280,32 +306,50 @@ class _PlaygroundScreenState extends State<PlaygroundScreen> {
         ),
         const _Section('Wheel'),
         SwitchListTile(
-          title: const Text('Background'),
+          title: const Text('Frame'),
+          subtitle: const Text('The painted rim around the slices'),
           value: _drawBackground,
           onChanged: (v) => setState(() => _drawBackground = v),
         ),
+        _ChoiceTile<String>(
+          label: 'Frame',
+          value: _frame,
+          options: {for (final name in _frameNames) name: name},
+          onChanged: (v) => setState(() => _frame = v),
+        ),
+        if (_decorationsLabel case final String label)
+          _SliderTile(
+            label: '$label: ${_decorations.round()}',
+            value: _decorations,
+            min: 0,
+            max: 16,
+            divisions: 16,
+            onChanged: (v) => setState(() => _decorations = v),
+          ),
+        if (_frame != 'Neon' && _frame != 'Candy (custom)')
+          SwitchListTile(
+            title: const Text('Frame shadow'),
+            value: _frameShadow,
+            onChanged: (v) => setState(() => _frameShadow = v),
+          ),
         _SliderTile(
-          label: 'Inset: ${(_wheelInset * 100).toStringAsFixed(1)}%',
-          value: _wheelInset,
+          label: _wheelInset == null
+              ? "Inset: the frame's own"
+              : 'Inset: ${(_wheelInset! * 100).toStringAsFixed(1)}%',
+          value: _wheelInset ?? _buildFrame().preferredInset,
           min: 0,
           max: 0.2,
           divisions: 40,
           onChanged: (v) => setState(() => _wheelInset = v),
         ),
-        _ChoiceTile<String>(
-          label: 'Background tint',
-          value: _tint,
-          options: {for (final name in _tints.keys) name: name},
-          onChanged: (v) => setState(() => _tint = v),
-        ),
-        SwitchListTile(
-          title: const Text('Solid tint'),
-          subtitle: const Text('BlendMode.srcIn instead of modulate'),
-          value: _solidTint,
-          onChanged: _tints[_tint] == null
-              ? null
-              : (v) => setState(() => _solidTint = v),
-        ),
+        if (_wheelInset != null)
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton(
+              onPressed: () => setState(() => _wheelInset = null),
+              child: const Text("Use the frame's inset"),
+            ),
+          ),
         const _Section('Labels'),
         _ChoiceTile<TextOverflow>(
           label: 'Overflow',

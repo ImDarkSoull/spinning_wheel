@@ -34,7 +34,7 @@
 * `WheelSegment<T>` and `SpinnerWheel<T>` are generic over the segment value. Lists typed as `List<WheelSegment>` now have `dynamic` values; use `List<WheelSegment<int>>`. See "Upgrading from 0.0.x" in the README.
 * Requires Flutter 3.27 / Dart 3.6 or newer.
 * `startSpin()` now completes when the wheel stops, with a `WheelSpinResult`, instead of right away.
-* `wheelColor` tints the background instead of painting it a solid color (use `wheelColorBlendMode: BlendMode.srcIn` for the old look).
+* The wheel's frame is now painted instead of an image, so it stays sharp at any size. `wheelColor` sets the frame's rim color. The `assets/wheel.png` image was removed (about 1 MB less in apps).
 * Segments without a `color` get a stable color based on their label and value instead of a random one.
 * The default `spinCurve` is now `Curves.decelerate`, and spins are limited to 40% of a slice per frame, so the wheel no longer appears to spin backwards at high speed. Wheels with many slices may make fewer turns than `minSpins`; a longer `spinDuration` allows more.
 
@@ -48,7 +48,9 @@
 * `highlightWinner` and `highlightColor`.
 * Per-segment `child` widget, `imageProvider`, `textStyle` and `semanticLabel`.
 * `imagePlaceholder`, `imageErrorWidget` and `onImageError`. Images now appear one by one as they load.
-* `wheelInset` and `wheelColorBlendMode`.
+* `frame` with four ready-made frames: `WheelFrame.classic()`, `WheelFrame.royal()`, `WheelFrame.neon()` and `WheelFrame.wooden()`, each with its own colors and options.
+* `WheelFrame.custom()` and subclassing `WheelFrame` to paint your own frame, with `WheelFrameGeometry` to line it up with the slices.
+* `wheelInset` to set how wide the frame is. It defaults to what the frame needs.
 * `WheelLabelStyle.copyWith` and value equality.
 * Screen reader support and right-to-left label text.
 

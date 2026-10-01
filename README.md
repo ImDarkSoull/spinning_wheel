@@ -17,6 +17,7 @@ A fully customizable spinning wheel for Flutter applications! Easily create fort
 - ✅ **Indicator on any side**, with an optional flick animation 📍
 - ✅ **Slices sized by probability**, flat or gradient fill, borders 🍕
 - ✅ **Winner highlight** 💡
+- ✅ **4 ready-made frames** (classic, royal, neon, wooden) **or your own** 🛞
 - ✅ **Images from assets, URLs or any `ImageProvider`**, with loading and error placeholders 🖼️🌐
 - ✅ **Any widget on a slice**, and per-slice text styles ✍️
 - ✅ **Advanced Label Styling** (rotation, ellipsis, fade, clipping) 🛡️
@@ -160,6 +161,66 @@ A fling spins the wheel in the direction you threw it. The result still follows 
 
 ## 🎨 Visuals
 
+### 🛞 Frames
+
+The frame around the wheel is painted, not an image, so it stays sharp at any size and scales with the wheel. Pick one of four ready-made frames:
+
+```dart
+SpinnerWheel(
+  // ...
+  frame: const WheelFrame.classic(),  // Red rim, silver teeth, gold studs (default)
+  // frame: const WheelFrame.royal(),  // Polished gold with gems and pearls
+  // frame: const WheelFrame.neon(),   // Glowing tubes on a dark ring
+  // frame: const WheelFrame.wooden(), // A ship's helm with wooden handles
+);
+```
+
+Each one can be recolored and tuned:
+
+```dart
+const WheelFrame.classic(rimColor: Color(0xFF14532D), toothCount: 12, studCount: 12);
+const WheelFrame.royal(goldColor: Color(0xFFC0C6CC), gemColor: Color(0xFF1565C0), gemCount: 8);
+const WheelFrame.neon(color: Color(0xFF39FF14), secondaryColor: Color(0xFFFFEA00));
+const WheelFrame.wooden(woodColor: Color(0xFF5D3A1A), handleCount: 6);
+```
+
+Every frame sets how much room it needs around the slices and a matching pointer color. Override them with `wheelInset` and `indicatorColor`. `wheelColor: Colors.purple` is a shortcut for `frame: WheelFrame.classic(rimColor: Colors.purple)`.
+
+#### Your own frame
+
+Paint it yourself with `WheelFrame.custom`. `paintBack` draws behind the slices and `paintFront` over their edge. The `WheelFrameGeometry` tells you where the center, the outer edge and the slices' edge are, so your frame lines up at any size:
+
+```dart
+void paintRing(Canvas canvas, WheelFrameGeometry g) {
+  canvas.drawPath(
+    g.ring(g.sliceRadius, g.outer), // From the slices' edge to the outside
+    Paint()..color = Colors.indigo,
+  );
+}
+
+const myFrame = WheelFrame.custom(
+  paintFront: paintRing,
+  preferredInset: 0.08,       // Room for the ring
+  indicatorColor: Colors.amber,
+);
+```
+
+Use top-level or static functions (not inline closures) so the frame isn't repainted on every rebuild. For more control, extend `WheelFrame` and override `paintBack`, `paintFront` and `preferredInset`. Helpers like `WheelFrame.paintDropShadow`, `WheelFrame.paintSliceShadow`, `WheelFrame.paintPlate` and `WheelFrame.paintStud` are there to reuse.
+
+To use an image (or any widget) instead, pass it as `background`, and set `wheelInset` to fit its rim:
+
+```dart
+SpinnerWheel(
+  // ...
+  background: Image.asset('assets/my_frame.png', fit: BoxFit.contain),
+  wheelInset: 0.094,
+);
+```
+
+`shouldDrawBackground: false` hides the frame.
+
+### Slices
+
 ```dart
 SpinnerWheel(
   // ...
@@ -229,7 +290,7 @@ In widget tests, `find.byType(SpinnerWheel)` only matches `SpinnerWheel<dynamic>
 | `segments`          | `List<WheelSegment<T>>`  | List of wheel segments (labels, colors, images) | Required   |
 | `onComplete`        | `void Function(WheelSegment<T>, int)` | Called when a spin completes       | Required   |
 | `onSpinStart`       | `VoidCallback?`          | Called when a spin starts                       | Optional   |
-| `onSegmentPass`     | `void Function(int)?`    | Called as each slice passes the indicator       | Optional   |
+| `onSegmentPass`     | `void Function(int)?`    | Called for every slice that passes the indicator | Optional   |
 | `spinDuration`      | `Duration`               | How long a spin takes                           | 5 seconds  |
 | `spinCurve`         | `Curve`                  | Easing of a spin                                | `decelerate` |
 | `minSpins` / `maxSpins` | `int`                | Range of whole turns per spin                   | `5` / `9`  |
@@ -250,14 +311,14 @@ In widget tests, `find.byType(SpinnerWheel)` only matches `SpinnerWheel<dynamic>
 | `labelStyle`        | `WheelLabelStyle?`       | Advanced styling for segment labels             | Optional   |
 | `slicePadding`      | `EdgeInsets`             | Padding inside slices (rim, center, and sides)  | `zero`     |
 | `imageWidth` / `imageHeight` | `double?`       | Size of segment images and widgets              | 11% of wheel |
-| `wheelColor`        | `Color?`                 | Tint color for the default wheel background     | Optional   |
-| `wheelColorBlendMode` | `BlendMode`            | How `wheelColor` is applied (`srcIn` for a solid color) | `modulate` |
-| `wheelInset`        | `double`                 | Gap between wheel edge and segments (fraction of size) | `0.094` |
-| `indicatorColor`    | `Color?`                 | Color of the default indicator                  | red        |
+| `frame`             | `WheelFrame?`            | The frame around the wheel                      | `WheelFrame.classic()` |
+| `wheelColor`        | `Color?`                 | Rim color of the classic frame (shortcut)       | Optional   |
+| `wheelInset`        | `double?`                | Gap between wheel edge and segments (fraction of size) | the frame's own |
+| `indicatorColor`    | `Color?`                 | Color of the default indicator                  | the frame's own, or red |
 | `centerChild`       | `Widget?`                | Custom widget for the wheel center              | Optional   |
 | `indicator`         | `Widget?`                | Custom widget for the indicator                 | Optional   |
-| `background`        | `Widget?`                | Custom widget for the wheel background layer    | Optional   |
-| `shouldDrawBackground`| `bool`                 | Toggle background visibility                    | `true`     |
+| `background`        | `Widget?`                | Custom widget in place of the frame             | Optional   |
+| `shouldDrawBackground`| `bool`                 | Show the frame (or `background`)                | `true`     |
 
 ### SpinnerController
 
@@ -283,6 +344,16 @@ In widget tests, `find.byType(SpinnerWheel)` only matches `SpinnerWheel<dynamic>
 | `child`         | `Widget?`        | A widget shown in place of the image                 |
 | `textStyle`     | `TextStyle?`     | Merged on top of the wheel's label style             |
 | `semanticLabel` | `String?`        | Screen reader description; defaults to `label`       |
+
+### Frames
+
+| Frame | Options |
+|-------|---------|
+| `WheelFrame.classic()` | `rimColor`, `rimHighlightColor`, `trimColor`, `studColor`, `toothCount`, `studCount`, `plateColor`, `shadow` |
+| `WheelFrame.royal()`   | `goldColor`, `gemColor`, `gemCount`, `plateColor`, `shadow` |
+| `WheelFrame.neon()`    | `color`, `secondaryColor`, `plateColor` |
+| `WheelFrame.wooden()`  | `woodColor`, `brassColor`, `handleCount`, `shadow` |
+| `WheelFrame.custom()`  | `paintFront`, `paintBack`, `preferredInset`, `indicatorColor` |
 
 ### WheelLabelStyle
 

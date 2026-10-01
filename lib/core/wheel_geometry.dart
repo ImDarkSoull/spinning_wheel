@@ -61,6 +61,48 @@ class WheelGeometry {
     return sweeps.lastIndexWhere((s) => s > 0);
   }
 
+  /// The slices that come under the pointer, in order, as the wheel turns
+  /// from rotation [from] to rotation [to]. A slice is listed each time the
+  /// pointer enters it, so a full turn lists every visible slice once.
+  ///
+  /// Stops after [limit] entries.
+  List<int> slicesEntered(double from, double to, double pointerAngle,
+      {int limit = 100000}) {
+    final List<int> entered = [];
+    if (length == 0 || from == to || !from.isFinite || !to.isFinite) {
+      return entered;
+    }
+    // Turning the wheel clockwise moves the pointer backwards over the
+    // slices (towards lower indexes).
+    final bool backwards = to > from;
+    double remaining = (to - from).abs();
+    int index = indexAt(from, pointerAngle);
+    if (index < 0) return entered;
+    double u = _positionUnderPointer(from, pointerAngle);
+    // The position can sit a hair past its slice's end from rounding.
+    u = u.clamp(offsets[index], offsets[index] + sweeps[index]);
+
+    while (entered.length < limit) {
+      final double toEdge =
+          backwards ? u - offsets[index] : offsets[index] + sweeps[index] - u;
+      if (remaining <= toEdge) break;
+      remaining -= toEdge;
+      index = _nextVisible(index, backwards ? -1 : 1);
+      u = backwards ? offsets[index] + sweeps[index] : offsets[index];
+      entered.add(index);
+    }
+    return entered;
+  }
+
+  int _nextVisible(int index, int step) {
+    int i = index;
+    for (int n = 0; n < length; n++) {
+      i = (i + step) % length;
+      if (sweeps[i] > 0) return i;
+    }
+    return index;
+  }
+
   /// Where within slice [index] the pointer is, from 0.0 (slice start) to
   /// 1.0 (slice end).
   double fractionAt(int index, double rotation, double pointerAngle) {

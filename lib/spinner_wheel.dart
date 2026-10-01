@@ -8,6 +8,7 @@ import '../core/spin_calculations.dart';
 import '../core/image_loader.dart';
 import '../core/wheel_geometry.dart';
 import '../widgets/wheel_display.dart';
+import '../frames/wheel_frame.dart';
 import '../models/wheel_options.dart';
 import '../models/wheel_segment.dart';
 import '../models/wheel_label_style.dart';
@@ -114,23 +115,30 @@ class SpinnerWheel<T> extends StatefulWidget {
   /// "Spinning wheel".
   final String? semanticsLabel;
 
-  /// An optional tint color applied to the default wheel background.
+  /// The rim color of the classic frame. A shortcut for
+  /// `frame: WheelFrame.classic(rimColor: ...)`; ignored when [frame] is
+  /// set.
   final Color? wheelColor;
 
-  /// How [wheelColor] is blended with the default wheel background.
+  /// The frame drawn around the wheel. Frames are painted, so they stay
+  /// sharp at any size.
   ///
-  /// The default, [BlendMode.modulate], tints the image while keeping its
-  /// shading. Use [BlendMode.srcIn] to paint it as a solid color.
-  final BlendMode wheelColorBlendMode;
+  /// Use a ready-made one ([WheelFrame.classic], [WheelFrame.royal],
+  /// [WheelFrame.neon], [WheelFrame.wooden]) or your own
+  /// ([WheelFrame.custom] or a subclass of [WheelFrame]). Defaults to
+  /// [WheelFrame.classic]. Not used when a custom [background] is given or
+  /// [shouldDrawBackground] is false.
+  final WheelFrame? frame;
 
   /// Gap between the wheel's outer edge and the segments, as a fraction of
-  /// the wheel size (0.0 to 0.5).
+  /// the wheel size (0.0 to 0.5). The frame fills this gap.
   ///
-  /// The default leaves room for the rim of the built-in background. Use 0
-  /// to let the segments fill the whole wheel.
-  final double wheelInset;
+  /// Defaults to the frame's [WheelFrame.preferredInset], or 0.094 without
+  /// a frame. Use 0 to let the segments fill the whole wheel.
+  final double? wheelInset;
 
-  /// The color of the default indicator.
+  /// The color of the default indicator. Defaults to the frame's
+  /// [WheelFrame.indicatorColor], or red.
   final Color? indicatorColor;
 
   /// A custom widget to display at the center of the wheel (e.g., a button or logo).
@@ -151,10 +159,11 @@ class SpinnerWheel<T> extends StatefulWidget {
   /// Configuration for the label style (text style, angle, etc.).
   final WheelLabelStyle? labelStyle;
 
-  /// A custom background widget displayed behind the segments.
+  /// A custom background widget displayed behind the segments, in place of
+  /// the default frame.
   final Widget? background;
 
-  /// Whether to draw the default or provided background layer.
+  /// Whether to draw the default frame or the provided [background].
   final bool shouldDrawBackground;
 
   /// Padding within segments for images and text.
@@ -187,8 +196,8 @@ class SpinnerWheel<T> extends StatefulWidget {
     this.onImageError,
     this.semanticsLabel,
     this.wheelColor,
-    this.wheelColorBlendMode = BlendMode.modulate,
-    this.wheelInset = 0.094,
+    this.frame,
+    this.wheelInset,
     this.indicatorColor,
     this.centerChild,
     this.indicator,
@@ -198,11 +207,26 @@ class SpinnerWheel<T> extends StatefulWidget {
     this.background,
     this.shouldDrawBackground = true,
     this.slicePadding = EdgeInsets.zero,
-  })  : assert(wheelInset >= 0 && wheelInset < 0.5,
+  })  : assert(wheelInset == null || (wheelInset >= 0 && wheelInset < 0.5),
             'wheelInset must be between 0.0 and 0.5'),
         assert(minSpins >= 0 && minSpins <= maxSpins,
             'minSpins must be between 0 and maxSpins'),
         assert(sliceBorderWidth >= 0, 'sliceBorderWidth must not be negative');
+
+  /// Whether the painted frame is shown (no custom [background], and
+  /// [shouldDrawBackground] is on).
+  bool get drawsFrame => shouldDrawBackground && background == null;
+
+  /// The frame actually used: [frame], or a classic frame in [wheelColor].
+  WheelFrame get effectiveFrame =>
+      frame ??
+      (wheelColor != null
+          ? WheelFrame.classic(rimColor: wheelColor!)
+          : const WheelFrame.classic());
+
+  /// The inset actually used: [wheelInset], or what the frame prefers.
+  double get effectiveWheelInset =>
+      wheelInset ?? (drawsFrame ? effectiveFrame.preferredInset : 0.094);
 
   @override
   State<SpinnerWheel<T>> createState() => SpinnerWheelState<T>();
@@ -238,7 +262,10 @@ class SpinnerWheelState<T> extends State<SpinnerWheel<T>>
   Completer<WheelSpinResult<T>?>? _spinCompleter;
 
   int? _highlightIndex;
-  int? _lastPassIndex;
+
+  /// The rotation at the last segment-pass check, to work out which slices
+  /// passed the pointer since then.
+  double _lastPassRotation = 0.0;
 
   bool _dragging = false;
   Offset _lastDragPosition = Offset.zero;
@@ -279,7 +306,6 @@ class SpinnerWheelState<T> extends State<SpinnerWheel<T>>
     _tickController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 140));
     _resetSegments();
-    _lastPassIndex = _indexUnderPointer();
   }
 
   @override
@@ -308,16 +334,25 @@ class SpinnerWheelState<T> extends State<SpinnerWheel<T>>
     }
   }
 
-  int? _indexUnderPointer() => _geometry.length == 0
-      ? null
-      : _geometry.indexAt(_currentRotation, _pointerAngle);
-
+  /// Reports every slice that came under the pointer since the last
+  /// check, in order, even if frames were skipped in between.
   void _checkSegmentPass() {
-    final int? index = _indexUnderPointer();
-    if (index == null || index == _lastPassIndex) return;
-    _lastPassIndex = index;
+    final double rotation = _currentRotation;
+    final List<int> entered =
+        _geometry.slicesEntered(_lastPassRotation, rotation, _pointerAngle);
+    _lastPassRotation = rotation;
+    if (entered.isEmpty) return;
     if (widget.indicatorBounce) _tickController.forward(from: 0);
-    widget.onSegmentPass?.call(index);
+    final void Function(int)? onPass = widget.onSegmentPass;
+    if (onPass != null) entered.forEach(onPass);
+  }
+
+  /// Sets the rotation to [rest] (the same position, within one turn)
+  /// without counting it as turning the wheel.
+  void _settleAt(double rest) {
+    _from = rest;
+    _to = rest;
+    _lastPassRotation = rest;
   }
 
   void _onSpinComplete() {
@@ -326,8 +361,7 @@ class SpinnerWheelState<T> extends State<SpinnerWheel<T>>
         ? WheelSpinResult<T>(_spinSegments[_spinIndex], _spinIndex)
         : null;
     setState(() {
-      _from = rest;
-      _to = rest;
+      _settleAt(rest);
       _stopping = false;
       if (widget.highlightWinner && result != null) {
         _highlightIndex = result.index;
@@ -628,10 +662,7 @@ class SpinnerWheelState<T> extends State<SpinnerWheel<T>>
     _dragging = false;
 
     final double rest = _currentRotation % (2 * pi);
-    setState(() {
-      _from = rest;
-      _to = rest;
-    });
+    setState(() => _settleAt(rest));
 
     final Offset r = _lastDragPosition - Offset(size / 2, size / 2);
     if (r.distance < size * 0.1 || widget.segments.isEmpty) return;
