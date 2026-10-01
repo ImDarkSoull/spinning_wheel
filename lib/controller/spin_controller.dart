@@ -21,13 +21,15 @@ class SpinnerController {
   }
 
   /// Triggers the wheel to start spinning based on the configured segments and logic.
+  ///
+  /// The returned future completes when the wheel stops, after
+  /// [SpinnerWheel.onComplete] has been called. Calling this while the wheel
+  /// is already spinning does not start a new spin.
   Future<void> startSpin() async {
     if (_state != null) {
       await _state!.startSpin();
     } else {
-      if (kDebugMode) {
-        print("Error: SpinnerWheelState is not attached to the controller!");
-      }
+      debugPrint("Error: SpinnerWheelState is not attached to the controller!");
     }
   }
 }

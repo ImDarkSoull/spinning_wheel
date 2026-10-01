@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
@@ -23,10 +25,23 @@ class SpinnerWheel extends StatefulWidget {
 
   /// Callback called when the wheel stops spinning.
   /// Returns the selected [WheelSegment] and its index.
-  final Function(WheelSegment, int) onComplete;
+  final void Function(WheelSegment segment, int index) onComplete;
 
   /// An optional tint color applied to the default wheel background.
   final Color? wheelColor;
+
+  /// How [wheelColor] is blended with the default wheel background.
+  ///
+  /// The default, [BlendMode.modulate], tints the image while keeping its
+  /// shading. Use [BlendMode.srcIn] to paint it as a solid color.
+  final BlendMode wheelColorBlendMode;
+
+  /// Gap between the wheel's outer edge and the segments, as a fraction of
+  /// the wheel size (0.0 to 0.5).
+  ///
+  /// The default leaves room for the rim of the built-in background. Use 0
+  /// to let the segments fill the whole wheel.
+  final double wheelInset;
 
   /// The color of the default indicator.
   final Color? indicatorColor;
@@ -62,6 +77,8 @@ class SpinnerWheel extends StatefulWidget {
     required this.segments,
     required this.onComplete,
     this.wheelColor,
+    this.wheelColorBlendMode = BlendMode.modulate,
+    this.wheelInset = 0.094,
     this.indicatorColor,
     this.centerChild,
     this.indicator,
@@ -71,7 +88,8 @@ class SpinnerWheel extends StatefulWidget {
     this.background,
     this.shouldDrawBackground = true,
     this.slicePadding = EdgeInsets.zero,
-  });
+  }) : assert(wheelInset >= 0 && wheelInset < 0.5,
+            'wheelInset must be between 0.0 and 0.5');
 
   @override
   State<SpinnerWheel> createState() => SpinnerWheelState();
@@ -94,16 +112,36 @@ class SpinnerWheelState extends State<SpinnerWheel>
   List<WheelSegment> _spinSegments = [];
   int _spinIndex = 0;
 
+  /// Completes when the current spin finishes.
+  Completer<void>? _spinCompleter;
+
   /// Incremented on every image load so that stale loads are discarded.
   int _loadGeneration = 0;
+  bool _imagesRequested = false;
+
+  /// Images this state loaded itself and therefore has to dispose.
+  List<ui.Image> _ownedImages = [];
 
   @override
   void initState() {
     super.initState();
     widget.controller.attachState(this);
-    processSegments();
+    _sourceSegments = List.of(widget.segments);
+    processedSegments = _sourceSegments;
     _controller = createSpinController(this, _onSpinComplete);
-    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeOutCirc);
+    _animation =
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutCirc);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Image loading needs the device pixel ratio from context, which isn't
+    // available in initState.
+    if (!_imagesRequested) {
+      _imagesRequested = true;
+      processSegments();
+    }
   }
 
   @override
@@ -125,6 +163,8 @@ class SpinnerWheelState extends State<SpinnerWheel>
     if (_spinIndex < _spinSegments.length) {
       widget.onComplete(_spinSegments[_spinIndex], _spinIndex);
     }
+    _spinCompleter?.complete();
+    _spinCompleter = null;
   }
 
   /// Loads images for all segments asynchronously.
@@ -132,24 +172,51 @@ class SpinnerWheelState extends State<SpinnerWheel>
   /// The segments are shown right away and their images appear once loaded.
   void processSegments() async {
     final int generation = ++_loadGeneration;
-    _sourceSegments = List.of(widget.segments);
-    processedSegments = _sourceSegments;
-    final loaded = await loadSegmentImages(_sourceSegments);
-    if (mounted && generation == _loadGeneration) {
-      setState(() {
-        processedSegments = loaded;
-      });
+    final List<WheelSegment> source = List.of(widget.segments);
+    _sourceSegments = source;
+    processedSegments = source;
+
+    final List<WheelSegment> loaded = await loadSegmentImages(
+      source,
+      configuration: createLocalImageConfiguration(context),
+    );
+    final List<ui.Image> newImages = [
+      for (int i = 0; i < loaded.length; i++)
+        if (loaded[i].image != null &&
+            !identical(loaded[i].image, source[i].image))
+          loaded[i].image!,
+    ];
+
+    if (!mounted || generation != _loadGeneration) {
+      for (final image in newImages) {
+        image.dispose();
+      }
+      return;
+    }
+
+    final List<ui.Image> oldImages = _ownedImages;
+    setState(() {
+      processedSegments = loaded;
+      _ownedImages = newImages;
+    });
+    for (final image in oldImages) {
+      image.dispose();
     }
   }
 
   /// Programmatically starts the spin animation.
   ///
-  /// Does nothing if the wheel is already spinning or has no segments.
-  Future<void> startSpin() async {
-    if (_controller.isAnimating) return;
+  /// The returned future completes when the wheel stops, after
+  /// [SpinnerWheel.onComplete] has been called. If the wheel is already
+  /// spinning, no new spin starts and the current spin's future is returned.
+  /// If there are no segments, nothing happens.
+  Future<void> startSpin() {
+    if (_controller.isAnimating && _spinCompleter != null) {
+      return _spinCompleter!.future;
+    }
     if (widget.segments.isEmpty) {
       debugPrint('SpinnerWheel: cannot spin, segments is empty.');
-      return;
+      return Future.value();
     }
     _controller.reset();
     _spinSegments = List.of(widget.segments);
@@ -158,14 +225,23 @@ class SpinnerWheelState extends State<SpinnerWheel>
       _spinIndex = result.index;
       _endRotation = result.end;
     });
+    final completer = Completer<void>();
+    _spinCompleter = completer;
     _controller.forward();
+    return completer.future;
   }
 
   @override
   void dispose() {
     widget.controller.detachState(this);
+    // Don't leave callers awaiting a spin that will never finish.
+    _spinCompleter?.complete();
+    _spinCompleter = null;
     _animation.dispose();
     _controller.dispose();
+    for (final image in _ownedImages) {
+      image.dispose();
+    }
     super.dispose();
   }
 
@@ -179,6 +255,8 @@ class SpinnerWheelState extends State<SpinnerWheel>
       centerChild: widget.centerChild,
       indicator: widget.indicator,
       wheelColor: widget.wheelColor,
+      wheelColorBlendMode: widget.wheelColorBlendMode,
+      wheelInset: widget.wheelInset,
       indicatorColor: widget.indicatorColor,
       imageHeight: widget.imageHeight,
       imageWidth: widget.imageWidth,

@@ -52,6 +52,7 @@ List<WheelSegment> segments = [
   WheelSegment("Jackpot!", 1000, color: Colors.orange, probability: 0.05), 
   WheelSegment("Prize 2", 20, color: Colors.blue, probability: 0.3),
   // Supports Network Images! 🌐
+  // No probability: shares what's left of 1.0 (here 0.45) with other such segments.
   WheelSegment("Gift", 100, path: "https://example.com/gift_icon.png"), 
   WheelSegment("Empty", 0, color: Colors.grey, probability: 0.2), 
 ];
@@ -86,7 +87,18 @@ SpinnerWheel(
 
 ```dart
 controller.startSpin();
+
+// Or wait until the wheel stops (after onComplete has been called):
+await controller.startSpin();
 ```
+
+Calling `startSpin()` while the wheel is already spinning does not start a new spin.
+
+### ⚖️ How probability works
+
+- If no segment sets `probability`, every segment is equally likely.
+- Segments without a `probability` share whatever is left of `1.0` equally.
+- If the explicit values already add up to `1.0` or more, segments without one can't win.
 
 ## 📜 API Reference
 
@@ -96,10 +108,12 @@ controller.startSpin();
 |---------------------|--------------------------|-------------------------------------------------|------------|
 | `controller`        | `SpinnerController`      | Controls the spin animation                     | Required   |
 | `segments`          | `List<WheelSegment>`     | List of wheel segments (labels, colors, images) | Required   |
-| `onComplete`        | `Function(WheelSegment, int)` | Callback triggered when spin completes    | Required   |
+| `onComplete`        | `void Function(WheelSegment, int)` | Callback triggered when spin completes | Required |
 | `labelStyle`        | `WheelLabelStyle?`       | Advanced styling for segment labels             | Optional   |
 | `slicePadding`      | `EdgeInsets`             | Padding inside slices (rim, center, and sides)  | `zero`     |
-| `wheelColor`        | `Color?`                 | Background color tint of the wheel              | Optional   |
+| `wheelColor`        | `Color?`                 | Tint color for the default wheel background     | Optional   |
+| `wheelColorBlendMode` | `BlendMode`            | How `wheelColor` is applied (`srcIn` for a solid color) | `modulate` |
+| `wheelInset`        | `double`                 | Gap between wheel edge and segments (fraction of size) | `0.094` |
 | `centerChild`       | `Widget?`                | Custom widget for the wheel center              | Optional   |
 | `indicator`         | `Widget?`                | Custom widget for the indicator                 | Optional   |
 | `background`        | `Widget?`                | Custom widget for the wheel background layer    | Optional   |
@@ -111,7 +125,7 @@ controller.startSpin();
 |--------------|---------------|-------------------------------------------------------|---------|
 | `labelStyle` | `TextStyle?`  | The theme/style of the text                           | Default |
 | `angle`      | `double`      | Additional rotation for the text (in radians)         | `0.0`   |
-| `overflow`   | `TextOverflow`| Handing for long text (clip, ellipsis, etc.)          | `clip`  |
+| `overflow`   | `TextOverflow`| Long text handling: `clip`, `ellipsis` and `fade` keep the label inside its slice, `visible` lets it overflow | `clip`  |
 | `maxLines`   | `int?`        | Maximum number of lines for the label                 | `1`     |
 
 ## 📄 License

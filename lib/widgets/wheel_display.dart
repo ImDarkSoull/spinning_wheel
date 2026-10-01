@@ -29,6 +29,13 @@ class WheelDisplay extends StatelessWidget {
   /// Tint color for the default wheel asset.
   final Color? wheelColor;
 
+  /// How [wheelColor] is blended with the default wheel asset.
+  final BlendMode wheelColorBlendMode;
+
+  /// Gap between the wheel's outer edge and the segments, as a fraction of
+  /// the wheel size.
+  final double wheelInset;
+
   /// Background color for the default indicator.
   final Color? indicatorColor;
 
@@ -59,6 +66,9 @@ class WheelDisplay extends StatelessWidget {
   /// Radial padding within segments.
   final EdgeInsets slicePadding;
 
+  /// Size used when neither the width nor the height is constrained.
+  static const double fallbackSize = 300.0;
+
   /// Creates a [WheelDisplay].
   const WheelDisplay({
     super.key,
@@ -69,6 +79,8 @@ class WheelDisplay extends StatelessWidget {
     this.centerChild,
     this.indicator,
     this.wheelColor,
+    this.wheelColorBlendMode = BlendMode.modulate,
+    this.wheelInset = 0.094,
     this.indicatorColor,
     this.imageHeight,
     this.imageWidth,
@@ -97,6 +109,11 @@ class WheelDisplay extends StatelessWidget {
         double finalWidth = min(targetSize, availableWidth);
         double finalHeight = min(targetSize * aspectRatio, availableHeight);
         double size = min(finalWidth, finalHeight);
+
+        // Unbounded in both directions (e.g. inside a scroll view in a Row).
+        if (!size.isFinite) {
+          size = fallbackSize.clamp(minSize, maxSize);
+        }
 
         return SizedBox(
           width: constraints.maxWidth == double.infinity ? size : null,
@@ -137,6 +154,7 @@ class WheelDisplay extends StatelessWidget {
                         package: 'spinning_wheel',
                         fit: BoxFit.contain,
                         color: wheelColor,
+                        colorBlendMode: wheelColorBlendMode,
                       ),
                     ),
               ),
@@ -148,16 +166,14 @@ class WheelDisplay extends StatelessWidget {
                 animation: animation,
                 child: RepaintBoundary(
                   child: Padding(
-                    padding: EdgeInsets.all(size * 0.094),
+                    padding: EdgeInsets.all(size * wheelInset),
                     child: CustomPaint(
                       size: Size(size, size),
                       painter: WheelPainter(
                         segments,
                         imageHeight: imageHeight ?? (size * 0.11),
                         imageWidth: imageWidth ?? (size * 0.11),
-                        labelStyle: labelStyle ??
-                            WheelLabelStyle(
-                                labelStyle: _getResponsiveLabelStyle(size)),
+                        labelStyle: _effectiveLabelStyle(size),
                         slicePadding: slicePadding,
                       ),
                     ),
@@ -252,16 +268,17 @@ class WheelDisplay extends StatelessWidget {
     );
   }
 
-  TextStyle? _getResponsiveLabelStyle(double size) {
-    if (labelStyle?.labelStyle != null) {
-      return labelStyle!.labelStyle;
-    }
-
-    // Provide a default responsive text style
-    return TextStyle(
-      fontSize: size * 0.025, // Responsive font size
-      fontWeight: FontWeight.bold,
-      color: Colors.black,
+  /// The user's [labelStyle], with a text style sized to the wheel filled
+  /// in when none was given.
+  WheelLabelStyle _effectiveLabelStyle(double size) {
+    final WheelLabelStyle style = labelStyle ?? const WheelLabelStyle();
+    if (style.labelStyle != null) return style;
+    return style.copyWith(
+      labelStyle: TextStyle(
+        fontSize: size * 0.025, // Responsive font size
+        fontWeight: FontWeight.bold,
+        color: Colors.black,
+      ),
     );
   }
 }

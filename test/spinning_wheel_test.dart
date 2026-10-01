@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:spinning_wheel/core/image_loader.dart';
 import 'package:spinning_wheel/core/spin_calculations.dart';
+import 'package:spinning_wheel/widgets/wheel_painter.dart';
 import 'package:spinning_wheel/spinning_wheel.dart';
 
 Widget _wheel(
@@ -98,7 +100,7 @@ void main() {
         won = s;
         wonIndex = i;
       }));
-      await controller.startSpin();
+      controller.startSpin();
       await tester.pumpAndSettle();
       expect(wonIndex, isNotNull);
       expect(won, same(segs[wonIndex!]));
@@ -112,12 +114,12 @@ void main() {
         [WheelSegment('a', 1), WheelSegment('b', 2)],
         onComplete: (_, __) => completions++,
       ));
-      await controller.startSpin();
+      controller.startSpin();
       await tester.pump();
       await tester.pump(const Duration(seconds: 2));
       final angleMidSpin = _wheelTransform(tester);
       expect(angleMidSpin, isNot(equals(Matrix4.identity())));
-      await controller.startSpin();
+      controller.startSpin();
       await tester.pump(Duration.zero);
       final angleAfterSecondCall = _wheelTransform(tester);
       // The wheel must not snap back to its start position.
@@ -167,8 +169,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('does not create a CurvedAnimation per frame',
-        (tester) async {
+    testWidgets('does not create a CurvedAnimation per frame', (tester) async {
       var created = 0;
       void listener(ObjectEvent event) {
         if (event is ObjectCreated && event.object is CurvedAnimation) {
@@ -184,9 +185,150 @@ void main() {
       await tester.pumpWidget(
           _wheel(controller, [WheelSegment('a', 1), WheelSegment('b', 2)]));
       final createdBeforeSpin = created;
-      await controller.startSpin();
+      controller.startSpin();
       await tester.pumpAndSettle();
       expect(created - createdBeforeSpin, 0);
+    });
+  });
+
+  group('startSpin future', () {
+    testWidgets('completes after onComplete', (tester) async {
+      final controller = SpinnerController();
+      final events = <String>[];
+      await tester.pumpWidget(_wheel(
+        controller,
+        [WheelSegment('a', 1), WheelSegment('b', 2)],
+        onComplete: (_, __) => events.add('onComplete'),
+      ));
+      controller.startSpin().then((_) => events.add('future'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(events, isEmpty);
+      await tester.pumpAndSettle();
+      expect(events, ['onComplete', 'future']);
+    });
+
+    testWidgets('completes when the wheel is disposed mid-spin',
+        (tester) async {
+      final controller = SpinnerController();
+      var done = false;
+      await tester.pumpWidget(
+          _wheel(controller, [WheelSegment('a', 1), WheelSegment('b', 2)]));
+      controller.startSpin().then((_) => done = true);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      expect(done, isTrue);
+    });
+  });
+
+  group('layout and painting', () {
+    testWidgets('unbounded constraints use a fallback size', (tester) async {
+      final controller = SpinnerController();
+      await tester.pumpWidget(MaterialApp(
+        home: SingleChildScrollView(
+          child: Row(children: [
+            SpinnerWheel(
+              controller: controller,
+              segments: [WheelSegment('a', 1), WheelSegment('b', 2)],
+              onComplete: (_, __) {},
+            ),
+          ]),
+        ),
+      ));
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byType(SpinnerWheel)), const Size(300, 300));
+    });
+
+    testWidgets('label style without text style gets the responsive default',
+        (tester) async {
+      final controller = SpinnerController();
+      await tester.pumpWidget(MaterialApp(
+        home: Center(
+          child: SizedBox(
+            width: 400,
+            height: 400,
+            child: SpinnerWheel(
+              controller: controller,
+              segments: [WheelSegment('a', 1), WheelSegment('b', 2)],
+              labelStyle: const WheelLabelStyle(angle: 1.0),
+              onComplete: (_, __) {},
+            ),
+          ),
+        ),
+      ));
+      final painter = tester
+          .widgetList<CustomPaint>(find.byType(CustomPaint))
+          .map((p) => p.painter)
+          .whereType<WheelPainter>()
+          .single;
+      expect(painter.labelStyle!.angle, 1.0);
+      expect(painter.labelStyle!.labelStyle!.color, Colors.black);
+      expect(painter.labelStyle!.labelStyle!.fontSize, 400 * 0.025);
+    });
+
+    testWidgets('all overflow modes and a single segment paint cleanly',
+        (tester) async {
+      for (final overflow in TextOverflow.values) {
+        for (final count in [1, 2, 8]) {
+          await tester.pumpWidget(MaterialApp(
+            home: SizedBox(
+              width: 300,
+              height: 300,
+              child: SpinnerWheel(
+                controller: SpinnerController(),
+                segments: List.generate(count,
+                    (i) => WheelSegment('A very long label number $i', i)),
+                labelStyle: WheelLabelStyle(
+                  labelStyle: const TextStyle(fontSize: 14),
+                  overflow: overflow,
+                  maxLines: count == 8 ? 2 : 1,
+                ),
+                onComplete: (_, __) {},
+              ),
+            ),
+          ));
+          expect(tester.takeException(), isNull,
+              reason: '$overflow with $count segments');
+        }
+      }
+    });
+
+    test('painter repaints when image size changes', () {
+      final segs = [WheelSegment('a', 1)];
+      final a = WheelPainter(segs, imageHeight: 10, imageWidth: 10);
+      expect(
+          a.shouldRepaint(WheelPainter(segs, imageHeight: 10, imageWidth: 10)),
+          isFalse);
+      expect(
+          a.shouldRepaint(WheelPainter(segs, imageHeight: 20, imageWidth: 10)),
+          isTrue);
+      expect(
+          a.shouldRepaint(WheelPainter(segs, imageHeight: 10, imageWidth: 20)),
+          isTrue);
+    });
+  });
+
+  group('models and helpers', () {
+    test('default segment color is stable', () {
+      expect(WheelSegment('Prize', 10).color, WheelSegment('Prize', 10).color);
+    });
+
+    test('WheelLabelStyle has value equality', () {
+      const a = WheelLabelStyle(labelStyle: TextStyle(fontSize: 12));
+      // ignore: prefer_const_constructors
+      final b = WheelLabelStyle(labelStyle: TextStyle(fontSize: 12));
+      expect(a, b);
+      expect(a.hashCode, b.hashCode);
+      expect(a.copyWith(angle: 1), isNot(a));
+    });
+
+    test('isNetworkPath only matches http(s) URLs', () {
+      expect(isNetworkPath('https://example.com/a.png'), isTrue);
+      expect(isNetworkPath('HTTP://example.com/a.png'), isTrue);
+      expect(isNetworkPath('assets/http_icon.png'), isFalse);
+      expect(isNetworkPath('http_icon.png'), isFalse);
     });
   });
 }

@@ -5,6 +5,7 @@
 * SetState issue of view fixed.
 
 ## 0.0.3
+* Wheel responsiveness is fixed.
 
 ## 0.0.4
 * Added `background` parameter to `SpinnerWheel` for custom background widgets.

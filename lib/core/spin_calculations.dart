@@ -28,8 +28,8 @@ List<double> effectiveProbabilities(List<WheelSegment> segments) {
     return List<double>.filled(segments.length, 1.0);
   }
 
-  final double explicitTotal = segments.fold(
-      0.0, (sum, s) => sum + max(0.0, s.probability ?? 0.0));
+  final double explicitTotal =
+      segments.fold(0.0, (sum, s) => sum + max(0.0, s.probability ?? 0.0));
   final double shared =
       unsetCount == 0 ? 0.0 : max(0.0, 1.0 - explicitTotal) / unsetCount;
 

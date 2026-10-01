@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:spinning_wheel/spinning_wheel.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -15,7 +15,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: GameScreen(),
+      home: const GameScreen(),
     );
   }
 }
@@ -27,20 +27,18 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen>
-    with SingleTickerProviderStateMixin {
-  // double _startRotation = 0.0;
-  // double _endRotation = 0.0;
-
-  SpinnerController controller = SpinnerController();
+class _GameScreenState extends State<GameScreen> {
+  final SpinnerController controller = SpinnerController();
 
   bool _isSpinning = false;
   String _result = 'spin the wheel';
   int _score = 0;
-  //total spins
+  // Total spins per game.
   int _spinsRemaining = 5;
-  bool _showConfetti = false;
+  // Highlights the result banner after a big win.
+  bool _isBigWin = false;
 
+  // Probabilities add up to 1.0, so each value is the segment's chance.
   final List<WheelSegment> _segments = [
     WheelSegment('JACKPOT WINNER!', 1000,
         color: const Color(0xFFEC8484),
@@ -65,14 +63,8 @@ class _GameScreenState extends State<GameScreen>
     WheelSegment('LOSE ALL', -9999,
         color: const Color(0xFF4E342E),
         path: 'assets/images/bat.png',
-        probability: 0.7),
+        probability: 0.44), // 44%
   ];
-
-  @override
-  void initState() {
-    // TODO: implement initState
-    super.initState();
-  }
 
   void _spinWheel() {
     if (_isSpinning || _spinsRemaining <= 0) return;
@@ -80,7 +72,7 @@ class _GameScreenState extends State<GameScreen>
       _spinsRemaining--;
       _isSpinning = true;
       _result = "Spinning...";
-      _showConfetti = false;
+      _isBigWin = false;
     });
     controller.startSpin();
   }
@@ -155,7 +147,7 @@ class _GameScreenState extends State<GameScreen>
       _score = 0;
       _spinsRemaining = 5;
       _result = "spin the wheel";
-      _showConfetti = false;
+      _isBigWin = false;
     });
   }
 
@@ -276,19 +268,11 @@ class _GameScreenState extends State<GameScreen>
                           if (win.value == -9999) {
                             _score = 0;
                             _result = "you lost All";
-                            _showConfetti = false;
-                          } else if (win.value == 1) {
-                            _result = 'you got 1 spin';
-                            _spinsRemaining++;
-                            _showConfetti = false;
-                          } else if (win.value > 200) {
-                            _score += win.value;
-                            _result = 'you won ${win.label}!';
-                            _showConfetti = true;
+                            _isBigWin = false;
                           } else {
                             _score += win.value;
                             _result = "you won ${win.label}!";
-                            _showConfetti = win.value >= 500;
+                            _isBigWin = win.value > 200;
                           }
 
                           _isSpinning = false;
@@ -307,16 +291,16 @@ class _GameScreenState extends State<GameScreen>
                     duration: Duration(milliseconds: 300),
                     padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                     decoration: BoxDecoration(
-                      color: _showConfetti
+                      color: _isBigWin
                           ? Colors.amber.withValues(alpha: 0.9)
                           : Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: _showConfetti
+                        color: _isBigWin
                             ? Colors.amber.shade700
                             : Colors.white.withValues(alpha: 0.3),
                       ),
-                      boxShadow: _showConfetti
+                      boxShadow: _isBigWin
                           ? [
                               BoxShadow(
                                 color: Colors.amber.withValues(alpha: 0.5),
@@ -330,7 +314,7 @@ class _GameScreenState extends State<GameScreen>
                       _result,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: _showConfetti
+                        color: _isBigWin
                             ? Colors.brown.shade900
                             : Colors.white,
                         fontSize: 22,

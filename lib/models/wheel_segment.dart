@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
@@ -8,7 +7,10 @@ class WheelSegment {
   final String label;
 
   /// The background color of the segment.
-  /// If not provided, a random color is selected.
+  ///
+  /// If not provided, a color from [Colors.primaries] is picked based on
+  /// [label] and [value], so the same segment keeps the same color across
+  /// rebuilds.
   final Color color;
 
   /// The numeric value associated with this segment (e.g., prize amount).
@@ -38,5 +40,6 @@ class WheelSegment {
     this.image,
     this.probability,
   }) : color = color ??
-            Colors.primaries[Random().nextInt(Colors.primaries.length)];
+            Colors.primaries[
+                Object.hash(label, value).abs() % Colors.primaries.length];
 }

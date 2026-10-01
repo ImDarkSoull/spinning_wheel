@@ -12,6 +12,12 @@ class WheelLabelStyle {
   final double angle;
 
   /// How visual overflow should be handled.
+  ///
+  /// * [TextOverflow.clip]: the label is clipped to its slice.
+  /// * [TextOverflow.ellipsis]: truncated text ends with `...`, clipped to
+  ///   its slice.
+  /// * [TextOverflow.fade]: truncated text fades out, clipped to its slice.
+  /// * [TextOverflow.visible]: the label may draw over neighboring slices.
   final TextOverflow overflow;
 
   /// An optional maximum number of lines for the text to span, wrapping if necessary.
@@ -24,4 +30,30 @@ class WheelLabelStyle {
     this.overflow = TextOverflow.clip,
     this.maxLines = 1,
   });
+
+  /// Creates a copy of this style with the given fields replaced.
+  WheelLabelStyle copyWith({
+    TextStyle? labelStyle,
+    double? angle,
+    TextOverflow? overflow,
+    int? maxLines,
+  }) {
+    return WheelLabelStyle(
+      labelStyle: labelStyle ?? this.labelStyle,
+      angle: angle ?? this.angle,
+      overflow: overflow ?? this.overflow,
+      maxLines: maxLines ?? this.maxLines,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is WheelLabelStyle &&
+      other.labelStyle == labelStyle &&
+      other.angle == angle &&
+      other.overflow == overflow &&
+      other.maxLines == maxLines;
+
+  @override
+  int get hashCode => Object.hash(labelStyle, angle, overflow, maxLines);
 }
