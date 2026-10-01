@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import 'package:spinning_wheel/widgets/wheel_painter.dart';
 import '../models/wheel_segment.dart';
@@ -7,8 +8,8 @@ import 'indicator.dart';
 
 /// Internal widget that handles the layout and rendering of the wheel components.
 class WheelDisplay extends StatelessWidget {
-  /// The [AnimationController] driving the wheel's rotation.
-  final AnimationController controller;
+  /// The (already curved) animation driving the wheel's rotation.
+  final Animation<double> animation;
 
   /// The list of segments to draw.
   final List<WheelSegment> segments;
@@ -61,7 +62,7 @@ class WheelDisplay extends StatelessWidget {
   /// Creates a [WheelDisplay].
   const WheelDisplay({
     super.key,
-    required this.controller,
+    required this.animation,
     required this.segments,
     required this.startRotation,
     required this.endRotation,
@@ -144,7 +145,7 @@ class WheelDisplay extends StatelessWidget {
               width: size,
               height: size,
               child: AnimatedBuilder(
-                animation: controller,
+                animation: animation,
                 child: RepaintBoundary(
                   child: Padding(
                     padding: EdgeInsets.all(size * 0.094),
@@ -164,14 +165,8 @@ class WheelDisplay extends StatelessWidget {
                 ),
                 builder: (context, child) {
                   return Transform.rotate(
-                    angle: Tween(begin: startRotation, end: endRotation)
-                        .animate(
-                          CurvedAnimation(
-                            parent: controller,
-                            curve: Curves.easeOutCirc,
-                          ),
-                        )
-                        .value,
+                    angle: lerpDouble(
+                        startRotation, endRotation, animation.value)!,
                     child: child,
                   );
                 },

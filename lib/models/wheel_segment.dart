@@ -22,7 +22,11 @@ class WheelSegment {
   final ui.Image? image;
 
   /// Weighted probability for this segment to be selected (0.0 to 1.0).
-  /// If null, it defaults to equal distribution sharing the remaining probability.
+  ///
+  /// If null, the segment gets an equal share of the probability left over
+  /// after all explicit values (`1.0 - sum`). If no segment sets a
+  /// probability, every segment is equally likely. If the explicit values
+  /// already add up to 1.0 or more, segments without one can't win.
   final double? probability;
 
   /// Creates a new [WheelSegment].

@@ -9,8 +9,34 @@ class SpinResult {
   /// The final calculated rotation angle in radians.
   final double end;
 
+  /// The index of the segment the wheel will land on.
+  final int index;
+
   /// Creates a [SpinResult].
-  SpinResult(this.start, this.end);
+  SpinResult(this.start, this.end, this.index);
+}
+
+/// Resolves the effective selection weight of each segment.
+///
+/// Segments with an explicit [WheelSegment.probability] keep it (negative
+/// values are treated as 0). Segments without one share the remaining
+/// probability (`1.0 - sum of explicit probabilities`) equally. If no segment
+/// has a probability, all segments are weighted equally.
+List<double> effectiveProbabilities(List<WheelSegment> segments) {
+  final int unsetCount = segments.where((s) => s.probability == null).length;
+  if (unsetCount == segments.length) {
+    return List<double>.filled(segments.length, 1.0);
+  }
+
+  final double explicitTotal = segments.fold(
+      0.0, (sum, s) => sum + max(0.0, s.probability ?? 0.0));
+  final double shared =
+      unsetCount == 0 ? 0.0 : max(0.0, 1.0 - explicitTotal) / unsetCount;
+
+  return [
+    for (final s in segments)
+      s.probability == null ? shared : max(0.0, s.probability!),
+  ];
 }
 
 /// Calculates the target [end] rotation for a spin based on weighted probabilities.
@@ -18,16 +44,21 @@ class SpinResult {
 /// [startRotation] is the current angle of the wheel.
 /// [segments] is the list of wheel slices to calculate against.
 SpinResult spinWheel(double startRotation, List<WheelSegment> segments) {
+  if (segments.isEmpty) {
+    throw ArgumentError.value(
+        segments, 'segments', 'SpinnerWheel needs at least one segment');
+  }
+
   // Use Random.secure() for cryptographically secure randomness (better fairness)
   final Random random = Random.secure();
   final int spinCount = 5 + random.nextInt(5);
 
   // Weighted random selection
   int selectedIndex = -1;
-  double totalProbability =
-      segments.fold(0.0, (sum, segment) => sum + (segment.probability ?? 0.0));
+  final List<double> weights = effectiveProbabilities(segments);
+  final double totalProbability = weights.fold(0.0, (sum, w) => sum + w);
 
-  // If no probabilities provided or total is 0, fall back to uniform distribution
+  // If the total weight is 0, fall back to uniform distribution
   if (totalProbability == 0.0) {
     selectedIndex = random.nextInt(segments.length);
   } else {
@@ -35,9 +66,8 @@ SpinResult spinWheel(double startRotation, List<WheelSegment> segments) {
     double currentSum = 0.0;
 
     for (int i = 0; i < segments.length; i++) {
-      double p = segments[i].probability ?? 0.0;
-      if (p > 0) {
-        currentSum += p;
+      if (weights[i] > 0) {
+        currentSum += weights[i];
         if (randomValue <= currentSum) {
           selectedIndex = i;
           break;
@@ -47,20 +77,10 @@ SpinResult spinWheel(double startRotation, List<WheelSegment> segments) {
 
     // Robust Fallback:
     // If floating point precision errors cause the loop to finish without selecting,
-    // the value technically belongs to the last segment with probability > 0.
+    // the value technically belongs to the last segment with weight > 0.
     if (selectedIndex == -1) {
-      for (int i = segments.length - 1; i >= 0; i--) {
-        if ((segments[i].probability ?? 0.0) > 0) {
-          selectedIndex = i;
-          break;
-        }
-      }
+      selectedIndex = weights.lastIndexWhere((w) => w > 0);
     }
-  }
-
-  // Final Safety Net: if still -1 (e.g. all probs were 0 but totalProbability > 0 somehow??), pick random.
-  if (selectedIndex == -1) {
-    selectedIndex = random.nextInt(segments.length);
   }
 
   // Calculate target angle range for the selected segment
@@ -84,11 +104,15 @@ SpinResult spinWheel(double startRotation, List<WheelSegment> segments) {
 
   double endRotation = startRotation + (spinCount * 2 * pi) + diff;
 
-  return SpinResult(startRotation, endRotation);
+  return SpinResult(startRotation, endRotation, selectedIndex);
 }
 
 /// Determines which segment index is at the top position based on the final [endRotation].
 int determineSegment(List<WheelSegment> segments, double endRotation) {
+  if (segments.isEmpty) {
+    throw ArgumentError.value(
+        segments, 'segments', 'SpinnerWheel needs at least one segment');
+  }
   final double normalizedAngle = endRotation % (2 * pi);
   final double segmentAngle = 2 * pi / segments.length;
   final double invertedAngle = 2 * pi - normalizedAngle;

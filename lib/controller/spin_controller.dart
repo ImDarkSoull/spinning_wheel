@@ -11,6 +11,15 @@ class SpinnerController {
     _state = state;
   }
 
+  /// Detaches the controller from [state], if it is the one attached.
+  /// This is called internally when the [SpinnerWheel] is disposed or
+  /// switches to a different controller.
+  void detachState(SpinnerWheelState state) {
+    if (identical(_state, state)) {
+      _state = null;
+    }
+  }
+
   /// Triggers the wheel to start spinning based on the configured segments and logic.
   Future<void> startSpin() async {
     if (_state != null) {

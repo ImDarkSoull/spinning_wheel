@@ -29,6 +29,7 @@ class WheelPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (segments.isEmpty) return;
     final double radius = size.width / 2;
     final Rect rect =
         Rect.fromCircle(center: Offset(radius, radius), radius: radius);

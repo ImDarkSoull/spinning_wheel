@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
 import '../core/animation_handler.dart';
@@ -82,35 +83,79 @@ class SpinnerWheelState extends State<SpinnerWheel>
   /// The list of segments after their images have been loaded.
   List<WheelSegment> processedSegments = [];
   late AnimationController _controller;
+  late CurvedAnimation _animation;
   double _startRotation = 0.0, _endRotation = 0.0;
+
+  /// Snapshot of [SpinnerWheel.segments] used to detect changes, including
+  /// in-place edits of the same list instance.
+  List<WheelSegment> _sourceSegments = [];
+
+  /// The segments and winning index of the spin currently in progress.
+  List<WheelSegment> _spinSegments = [];
+  int _spinIndex = 0;
+
+  /// Incremented on every image load so that stale loads are discarded.
+  int _loadGeneration = 0;
 
   @override
   void initState() {
+    super.initState();
     widget.controller.attachState(this);
     processSegments();
-    _controller = createSpinController(this, () {
-      setState(() {
-        _startRotation = _endRotation % (2 * pi);
-        int wheelIndex = determineSegment(widget.segments, _endRotation);
-        widget.onComplete(widget.segments[wheelIndex], wheelIndex);
-      });
+    _controller = createSpinController(this, _onSpinComplete);
+    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeOutCirc);
+  }
+
+  @override
+  void didUpdateWidget(covariant SpinnerWheel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.controller, widget.controller)) {
+      oldWidget.controller.detachState(this);
+      widget.controller.attachState(this);
+    }
+    if (!listEquals(_sourceSegments, widget.segments)) {
+      processSegments();
+    }
+  }
+
+  void _onSpinComplete() {
+    setState(() {
+      _startRotation = _endRotation % (2 * pi);
     });
-    super.initState();
+    if (_spinIndex < _spinSegments.length) {
+      widget.onComplete(_spinSegments[_spinIndex], _spinIndex);
+    }
   }
 
   /// Loads images for all segments asynchronously.
+  ///
+  /// The segments are shown right away and their images appear once loaded.
   void processSegments() async {
-    processedSegments = await loadSegmentImages(widget.segments);
-    if (mounted) {
-      setState(() {});
+    final int generation = ++_loadGeneration;
+    _sourceSegments = List.of(widget.segments);
+    processedSegments = _sourceSegments;
+    final loaded = await loadSegmentImages(_sourceSegments);
+    if (mounted && generation == _loadGeneration) {
+      setState(() {
+        processedSegments = loaded;
+      });
     }
   }
 
   /// Programmatically starts the spin animation.
+  ///
+  /// Does nothing if the wheel is already spinning or has no segments.
   Future<void> startSpin() async {
+    if (_controller.isAnimating) return;
+    if (widget.segments.isEmpty) {
+      debugPrint('SpinnerWheel: cannot spin, segments is empty.');
+      return;
+    }
     _controller.reset();
-    final result = spinWheel(_startRotation, widget.segments);
+    _spinSegments = List.of(widget.segments);
+    final result = spinWheel(_startRotation, _spinSegments);
     setState(() {
+      _spinIndex = result.index;
       _endRotation = result.end;
     });
     _controller.forward();
@@ -118,6 +163,8 @@ class SpinnerWheelState extends State<SpinnerWheel>
 
   @override
   void dispose() {
+    widget.controller.detachState(this);
+    _animation.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -125,7 +172,7 @@ class SpinnerWheelState extends State<SpinnerWheel>
   @override
   Widget build(BuildContext context) {
     return WheelDisplay(
-      controller: _controller,
+      animation: _animation,
       segments: processedSegments,
       startRotation: _startRotation,
       endRotation: _endRotation,
