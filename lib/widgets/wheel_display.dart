@@ -1,18 +1,28 @@
 import 'dart:math';
 import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
-import 'package:spinning_wheel/widgets/wheel_painter.dart';
+import '../core/image_loader.dart';
+import '../core/wheel_geometry.dart';
 import '../models/wheel_segment.dart';
 import '../models/wheel_label_style.dart';
+import '../models/wheel_options.dart';
+import '../spinner_wheel.dart';
 import 'indicator.dart';
+import 'wheel_painter.dart';
 
 /// Internal widget that handles the layout and rendering of the wheel components.
 class WheelDisplay extends StatelessWidget {
+  /// The wheel's configuration.
+  final SpinnerWheel config;
+
   /// The (already curved) animation driving the wheel's rotation.
   final Animation<double> animation;
 
   /// The list of segments to draw.
   final List<WheelSegment> segments;
+
+  /// The angular layout of [segments].
+  final WheelGeometry geometry;
 
   /// The starting rotation angle.
   final double startRotation;
@@ -20,33 +30,33 @@ class WheelDisplay extends StatelessWidget {
   /// The target end rotation angle.
   final double endRotation;
 
-  /// Optional widget to display in the center hub.
-  final Widget? centerChild;
+  /// The image loading state of each segment.
+  final List<ImageLoadState> imageStates;
 
-  /// Optional custom indicator widget.
-  final Widget? indicator;
+  /// The slice to highlight, if any.
+  final int? highlightIndex;
 
-  /// Tint color for the default wheel asset.
-  final Color? wheelColor;
+  /// Runs from 0 to 1 each time the indicator should flick.
+  final Animation<double>? indicatorTick;
 
-  /// How [wheelColor] is blended with the default wheel asset.
-  final BlendMode wheelColorBlendMode;
+  /// Whether the wheel is turning clockwise (sets the flick direction).
+  final bool clockwise;
 
-  /// Gap between the wheel's outer edge and the segments, as a fraction of
-  /// the wheel size.
-  final double wheelInset;
+  /// The wheel's current state for screen readers.
+  final String? semanticsValue;
 
-  /// Background color for the default indicator.
-  final Color? indicatorColor;
+  /// Called when the center is tapped, or null if tapping does nothing.
+  final VoidCallback? onCenterTap;
 
-  /// Fixed height for segment images.
-  final double? imageHeight;
+  /// Called when a drag on the wheel starts.
+  final VoidCallback? onDragStart;
 
-  /// Fixed width for segment images.
-  final double? imageWidth;
+  /// Called as a drag moves, with the pointer position and movement in the
+  /// wheel's coordinates and the wheel's size.
+  final void Function(Offset position, Offset delta, double size)? onDragUpdate;
 
-  /// Configuration for the label style.
-  final WheelLabelStyle? labelStyle;
+  /// Called when a drag ends, with the release velocity.
+  final void Function(Velocity velocity, double size)? onDragEnd;
 
   /// Minimum allowed size for the wheel.
   final double minSize;
@@ -57,40 +67,30 @@ class WheelDisplay extends StatelessWidget {
   /// Aspect ratio for the wheel (default 1.0).
   final double aspectRatio;
 
-  /// Custom background widget.
-  final Widget? background;
-
-  /// Whether to render the background layer.
-  final bool shouldDrawBackground;
-
-  /// Radial padding within segments.
-  final EdgeInsets slicePadding;
-
   /// Size used when neither the width nor the height is constrained.
   static const double fallbackSize = 300.0;
 
   /// Creates a [WheelDisplay].
   const WheelDisplay({
     super.key,
+    required this.config,
     required this.animation,
     required this.segments,
+    required this.geometry,
     required this.startRotation,
     required this.endRotation,
-    this.centerChild,
-    this.indicator,
-    this.wheelColor,
-    this.wheelColorBlendMode = BlendMode.modulate,
-    this.wheelInset = 0.094,
-    this.indicatorColor,
-    this.imageHeight,
-    this.imageWidth,
-    this.labelStyle,
+    this.imageStates = const [],
+    this.highlightIndex,
+    this.indicatorTick,
+    this.clockwise = true,
+    this.semanticsValue,
+    this.onCenterTap,
+    this.onDragStart,
+    this.onDragUpdate,
+    this.onDragEnd,
     this.minSize = 100.0,
     this.maxSize = double.infinity,
     this.aspectRatio = 1.0,
-    this.background,
-    this.shouldDrawBackground = true,
-    this.slicePadding = EdgeInsets.zero,
   });
 
   @override
@@ -124,7 +124,7 @@ class WheelDisplay extends StatelessWidget {
               child: SizedBox(
                 width: size,
                 height: size,
-                child: _buildWheel(size),
+                child: _buildSemantics(_buildWheel(context, size)),
               ),
             ),
           ),
@@ -133,8 +133,23 @@ class WheelDisplay extends StatelessWidget {
     );
   }
 
-  Widget _buildWheel(double size) {
-    return Stack(
+  Widget _buildSemantics(Widget child) {
+    final String names =
+        segments.map((s) => s.semanticLabel ?? s.label).join(', ');
+    return Semantics(
+      container: true,
+      label: config.semanticsLabel ?? 'Spinning wheel',
+      value: semanticsValue,
+      hint: '${segments.length} segments: $names',
+      liveRegion: true,
+      button: onCenterTap != null,
+      onTap: onCenterTap,
+      child: child,
+    );
+  }
+
+  Widget _buildWheel(BuildContext context, double size) {
+    Widget wheel = Stack(
       alignment: Alignment.center,
       children: [
         // Main wheel container
@@ -142,19 +157,19 @@ class WheelDisplay extends StatelessWidget {
           alignment: Alignment.center,
           children: [
             // Wheel background image
-            if (shouldDrawBackground)
+            if (config.shouldDrawBackground)
               SizedBox(
                 width: size,
                 height: size,
-                child: background ??
+                child: config.background ??
                     FittedBox(
                       fit: BoxFit.contain,
                       child: Image.asset(
                         'assets/wheel.png',
                         package: 'spinning_wheel',
                         fit: BoxFit.contain,
-                        color: wheelColor,
-                        colorBlendMode: wheelColorBlendMode,
+                        color: config.wheelColor,
+                        colorBlendMode: config.wheelColorBlendMode,
                       ),
                     ),
               ),
@@ -166,17 +181,8 @@ class WheelDisplay extends StatelessWidget {
                 animation: animation,
                 child: RepaintBoundary(
                   child: Padding(
-                    padding: EdgeInsets.all(size * wheelInset),
-                    child: CustomPaint(
-                      size: Size(size, size),
-                      painter: WheelPainter(
-                        segments,
-                        imageHeight: imageHeight ?? (size * 0.11),
-                        imageWidth: imageWidth ?? (size * 0.11),
-                        labelStyle: _effectiveLabelStyle(size),
-                        slicePadding: slicePadding,
-                      ),
-                    ),
+                    padding: EdgeInsets.all(size * config.wheelInset),
+                    child: _buildSlices(context, size),
                   ),
                 ),
                 builder: (context, child) {
@@ -196,45 +202,151 @@ class WheelDisplay extends StatelessWidget {
         _buildCenterButton(size),
       ],
     );
+
+    if (onDragUpdate != null) {
+      wheel = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanStart: (_) => onDragStart?.call(),
+        onPanUpdate: (details) =>
+            onDragUpdate!(details.localPosition, details.delta, size),
+        onPanEnd: (details) => onDragEnd?.call(details.velocity, size),
+        child: wheel,
+      );
+    }
+    return wheel;
+  }
+
+  /// The painted slices plus any per-segment widgets, rotating together.
+  Widget _buildSlices(BuildContext context, double size) {
+    final double innerSize = size * (1 - 2 * config.wheelInset);
+    final double imageWidth = config.imageWidth ?? (size * 0.11);
+    final double imageHeight = config.imageHeight ?? (size * 0.11);
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: CustomPaint(
+            painter: WheelPainter(
+              segments,
+              imageHeight: imageHeight,
+              imageWidth: imageWidth,
+              labelStyle: _effectiveLabelStyle(size),
+              slicePadding: config.slicePadding,
+              geometry: geometry,
+              sliceStyle: config.sliceStyle,
+              borderColor: config.sliceBorderColor,
+              borderWidth: config.sliceBorderWidth,
+              highlightIndex: highlightIndex,
+              highlightColor: config.highlightColor,
+              textDirection:
+                  Directionality.maybeOf(context) ?? TextDirection.ltr,
+            ),
+          ),
+        ),
+        for (int i = 0; i < segments.length && i < geometry.length; i++)
+          if (geometry.sweeps[i] > 0)
+            if (_overlayFor(i) case final Widget overlay)
+              _positionOnSlice(i, innerSize, imageWidth, imageHeight, overlay),
+      ],
+    );
+  }
+
+  /// The widget drawn in place of segment [index]'s image, if any.
+  Widget? _overlayFor(int index) {
+    final WheelSegment segment = segments[index];
+    if (segment.child != null) return segment.child;
+    final ImageLoadState state =
+        index < imageStates.length ? imageStates[index] : ImageLoadState.none;
+    return switch (state) {
+      ImageLoadState.loading => config.imagePlaceholder,
+      ImageLoadState.failed => config.imageErrorWidget,
+      _ => null,
+    };
+  }
+
+  /// Places [child] where segment [index]'s image goes, facing outward.
+  Widget _positionOnSlice(
+      int index, double innerSize, double width, double height, Widget child) {
+    final double radius = innerSize / 2;
+    final double distance =
+        radius * 0.55 - config.slicePadding.top + config.slicePadding.bottom;
+    final double angle = geometry.midAngle(index);
+    final Offset center =
+        Offset(radius, radius) + Offset(cos(angle), sin(angle)) * distance;
+    return Positioned(
+      left: center.dx - width / 2,
+      top: center.dy - height / 2,
+      width: width,
+      height: height,
+      child: Transform.rotate(angle: angle + pi / 2, child: child),
+    );
   }
 
   Widget _buildIndicator(double size) {
-    return Positioned(
-      top: size * 0.02, // More responsive positioning
-      child: indicator ??
-          ClipPath(
-            clipper: TriangleBottomClipper(),
-            child: Container(
-              width: size * 0.03,
-              height: size * 0.15,
-              decoration: BoxDecoration(
-                color: indicatorColor ?? Colors.red,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    blurRadius: size * 0.01,
-                    spreadRadius: size * 0.002,
-                    offset: Offset(0, size * 0.005),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Container(
-                  width: size * 0.015,
-                  height: size * 0.015,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
+    Widget pointer = config.indicator ??
+        ClipPath(
+          clipper: TriangleBottomClipper(),
+          child: Container(
+            width: size * 0.03,
+            height: size * 0.15,
+            decoration: BoxDecoration(
+              color: config.indicatorColor ?? Colors.red,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: size * 0.01,
+                  spreadRadius: size * 0.002,
+                  offset: Offset(0, size * 0.005),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Container(
+                width: size * 0.015,
+                height: size * 0.015,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
                 ),
               ),
             ),
           ),
+        );
+
+    final Animation<double>? tick = indicatorTick;
+    if (config.indicatorBounce && tick != null) {
+      // The wheel's surface drags the pointer's tip along with it, then it
+      // springs back. A clockwise wheel pushes the tip counterclockwise
+      // around its anchor.
+      final double direction = clockwise ? -1.0 : 1.0;
+      final Widget still = pointer;
+      pointer = AnimatedBuilder(
+        animation: tick,
+        child: still,
+        builder: (context, child) => Transform.rotate(
+          alignment: Alignment.topCenter,
+          angle: direction * sin(pi * tick.value) * 0.35,
+          child: child,
+        ),
+      );
+    }
+
+    pointer = RotatedBox(
+      quarterTurns: config.indicatorPosition.quarterTurns,
+      child: pointer,
     );
+
+    final double gap = size * 0.02; // More responsive positioning
+    return switch (config.indicatorPosition) {
+      IndicatorPosition.top => Positioned(top: gap, child: pointer),
+      IndicatorPosition.right => Positioned(right: gap, child: pointer),
+      IndicatorPosition.bottom => Positioned(bottom: gap, child: pointer),
+      IndicatorPosition.left => Positioned(left: gap, child: pointer),
+    };
   }
 
   Widget _buildCenterButton(double size) {
-    return Container(
+    final Widget button = Container(
       width: size * 0.12,
       height: size * 0.12,
       decoration: BoxDecoration(
@@ -252,7 +364,7 @@ class WheelDisplay extends StatelessWidget {
           ),
         ],
       ),
-      child: centerChild ??
+      child: config.centerChild ??
           Container(
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
@@ -266,12 +378,17 @@ class WheelDisplay extends StatelessWidget {
             ),
           ),
     );
+    if (onCenterTap == null) return button;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(onTap: onCenterTap, child: button),
+    );
   }
 
-  /// The user's [labelStyle], with a text style sized to the wheel filled
-  /// in when none was given.
+  /// The user's [SpinnerWheel.labelStyle], with a text style sized to the
+  /// wheel filled in when none was given.
   WheelLabelStyle _effectiveLabelStyle(double size) {
-    final WheelLabelStyle style = labelStyle ?? const WheelLabelStyle();
+    final WheelLabelStyle style = config.labelStyle ?? const WheelLabelStyle();
     if (style.labelStyle != null) return style;
     return style.copyWith(
       labelStyle: TextStyle(

@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
-/// Creates the [AnimationController] responsible for the 5-second spin duration.
+/// Creates the [AnimationController] responsible for the spin, lasting
+/// [duration] (5 seconds by default).
 ///
 /// Triggers [onSpinComplete] when the animation finishes.
 AnimationController createSpinController(
-    TickerProvider vsync, VoidCallback onSpinComplete) {
+    TickerProvider vsync, VoidCallback onSpinComplete,
+    {Duration duration = const Duration(seconds: 5)}) {
   AnimationController controller = AnimationController(
     vsync: vsync,
-    duration: const Duration(seconds: 5),
+    duration: duration,
   );
 
   controller.addStatusListener((status) {

@@ -28,3 +28,39 @@
 * **Automatic Text Clipping**: Added `overflow` and `maxLines` to `WheelLabelStyle` for smart label containment.
 * **Slice Padding**: Upgraded `slicePadding` to use `EdgeInsets` for precise radial and horizontal control inside segments.
 * **Layout Optimization**: Text labels now automatically calculate available width to prevent slice overlapping.
+
+## 0.1.0
+**Breaking changes**
+* `WheelSegment<T>` and `SpinnerWheel<T>` are generic over the segment value. Lists typed as `List<WheelSegment>` now have `dynamic` values; use `List<WheelSegment<int>>`. See "Upgrading from 0.0.x" in the README.
+* Requires Flutter 3.27 / Dart 3.6 or newer.
+* `startSpin()` now completes when the wheel stops, with a `WheelSpinResult`, instead of right away.
+* `wheelColor` tints the background instead of painting it a solid color (use `wheelColorBlendMode: BlendMode.srcIn` for the old look).
+* Segments without a `color` get a stable color based on their label and value instead of a random one.
+* The default `spinCurve` is now `Curves.decelerate`, and spins are limited to 40% of a slice per frame, so the wheel no longer appears to spin backwards at high speed. Wheels with many slices may make fewer turns than `minSpins`; a longer `spinDuration` allows more.
+
+**New**
+* `SpinnerController` is a `ChangeNotifier` with `isSpinning`, `lastResult`, `isAttached`, `spinTo(index)` and `stop()`.
+* `spinDuration`, `spinCurve`, `minSpins` and `maxSpins` to tune spins.
+* `onSpinStart` and `onSegmentPass` callbacks.
+* `tapToSpin` and `swipeToSpin` (drag and fling the wheel).
+* `indicatorPosition` (top, right, bottom, left) and `indicatorBounce`.
+* `sliceSizing` (slices sized by probability), `sliceStyle` (flat or gradient), `sliceBorderColor` and `sliceBorderWidth`.
+* `highlightWinner` and `highlightColor`.
+* Per-segment `child` widget, `imageProvider`, `textStyle` and `semanticLabel`.
+* `imagePlaceholder`, `imageErrorWidget` and `onImageError`. Images now appear one by one as they load.
+* `wheelInset` and `wheelColorBlendMode`.
+* `WheelLabelStyle.copyWith` and value equality.
+* Screen reader support and right-to-left label text.
+
+**Fixes**
+* Segments without a `probability` could never win when others had one.
+* Changing `segments` after the first build had no effect.
+* Calling `startSpin()` mid-spin made the wheel jump back; it is now ignored.
+* `startSpin()` after the wheel was disposed threw an error.
+* An empty `segments` list crashed.
+* A `CurvedAnimation` was leaked on every animation frame.
+* Labels with `clip`, `fade` or `ellipsis` overflow now stay inside their slice; `fade` actually fades.
+* A one-segment wheel showed no label.
+* The wheel crashed when given no size limits on either axis.
+* Loaded images were never disposed, and 2x/3x asset variants weren't used.
+* Asset paths starting with "http" were treated as URLs.

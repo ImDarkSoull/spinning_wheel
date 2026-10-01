@@ -1,5 +1,8 @@
 import 'dart:math';
+import 'package:flutter/animation.dart';
+import '../models/wheel_options.dart';
 import '../models/wheel_segment.dart';
+import 'wheel_geometry.dart';
 
 /// Holds the calculation results for a wheel spin animation.
 class SpinResult {
@@ -39,6 +42,60 @@ List<double> effectiveProbabilities(List<WheelSegment> segments) {
   ];
 }
 
+/// The slice layout for [segments] with the given [sizing].
+WheelGeometry geometryFor(List<WheelSegment> segments, SliceSizing sizing) {
+  return switch (sizing) {
+    SliceSizing.equal => WheelGeometry.equal(segments.length),
+    SliceSizing.proportional =>
+      WheelGeometry.weighted(effectiveProbabilities(segments)),
+  };
+}
+
+/// Picks an index at random, with each index's chance proportional to its
+/// weight. Falls back to a uniform pick if all weights are zero.
+int pickWeightedIndex(List<double> weights, Random random) {
+  final double total = weights.fold(0.0, (sum, w) => sum + w);
+  if (total <= 0.0) return random.nextInt(weights.length);
+
+  final double randomValue = random.nextDouble() * total;
+  double currentSum = 0.0;
+  for (int i = 0; i < weights.length; i++) {
+    if (weights[i] > 0) {
+      currentSum += weights[i];
+      if (randomValue <= currentSum) return i;
+    }
+  }
+  // Floating point rounding: the value belongs to the last positive weight.
+  return weights.lastIndexWhere((w) => w > 0);
+}
+
+/// Plans a spin that lands on [index].
+///
+/// The wheel turns at least [fullTurns] whole turns in the given direction
+/// and stops at a random point between 10% and 90% of the slice, so it never
+/// lands on a dividing line.
+SpinResult planSpin({
+  required double startRotation,
+  required WheelGeometry geometry,
+  required int index,
+  required int fullTurns,
+  double pointerAngle = -pi / 2,
+  bool clockwise = true,
+  Random? random,
+}) {
+  final Random rng = random ?? Random.secure();
+  final double fraction = 0.1 + rng.nextDouble() * 0.8;
+  final double end = geometry.endRotationFor(
+    startRotation: startRotation,
+    index: index,
+    fraction: fraction,
+    pointerAngle: pointerAngle,
+    fullTurns: fullTurns,
+    clockwise: clockwise,
+  );
+  return SpinResult(startRotation, end, index);
+}
+
 /// Calculates the target [end] rotation for a spin based on weighted probabilities.
 ///
 /// [startRotation] is the current angle of the wheel.
@@ -48,63 +105,15 @@ SpinResult spinWheel(double startRotation, List<WheelSegment> segments) {
     throw ArgumentError.value(
         segments, 'segments', 'SpinnerWheel needs at least one segment');
   }
-
   // Use Random.secure() for cryptographically secure randomness (better fairness)
   final Random random = Random.secure();
-  final int spinCount = 5 + random.nextInt(5);
-
-  // Weighted random selection
-  int selectedIndex = -1;
-  final List<double> weights = effectiveProbabilities(segments);
-  final double totalProbability = weights.fold(0.0, (sum, w) => sum + w);
-
-  // If the total weight is 0, fall back to uniform distribution
-  if (totalProbability == 0.0) {
-    selectedIndex = random.nextInt(segments.length);
-  } else {
-    double randomValue = random.nextDouble() * totalProbability;
-    double currentSum = 0.0;
-
-    for (int i = 0; i < segments.length; i++) {
-      if (weights[i] > 0) {
-        currentSum += weights[i];
-        if (randomValue <= currentSum) {
-          selectedIndex = i;
-          break;
-        }
-      }
-    }
-
-    // Robust Fallback:
-    // If floating point precision errors cause the loop to finish without selecting,
-    // the value technically belongs to the last segment with weight > 0.
-    if (selectedIndex == -1) {
-      selectedIndex = weights.lastIndexWhere((w) => w > 0);
-    }
-  }
-
-  // Calculate target angle range for the selected segment
-  // The wheel painter draws segments clockwise (or counter depending on logic)
-  // determineSegment logic:
-  // invertedAngle = 2*pi - normalizedAngle
-  // index = invertedAngle ~/ segmentAngle
-  // So invertedAngle must be between index*segmentAngle and (index+1)*segmentAngle
-
-  double segmentAngle = 2 * pi / segments.length;
-
-  // Pick a random spot within the segment (10% to 90%) to avoid landing on lines
-  double randomOffset = 0.1 + (random.nextDouble() * 0.8);
-  double targetInvertedAngle = (selectedIndex + randomOffset) * segmentAngle;
-
-  double targetNormalizedAngle = (2 * pi - targetInvertedAngle) % (2 * pi);
-
-  double currentPhase = startRotation % (2 * pi);
-  double diff = targetNormalizedAngle - currentPhase;
-  if (diff < 0) diff += 2 * pi;
-
-  double endRotation = startRotation + (spinCount * 2 * pi) + diff;
-
-  return SpinResult(startRotation, endRotation, selectedIndex);
+  return planSpin(
+    startRotation: startRotation,
+    geometry: WheelGeometry.equal(segments.length),
+    index: pickWeightedIndex(effectiveProbabilities(segments), random),
+    fullTurns: 5 + random.nextInt(5),
+    random: random,
+  );
 }
 
 /// Determines which segment index is at the top position based on the final [endRotation].
@@ -113,10 +122,45 @@ int determineSegment(List<WheelSegment> segments, double endRotation) {
     throw ArgumentError.value(
         segments, 'segments', 'SpinnerWheel needs at least one segment');
   }
-  final double normalizedAngle = endRotation % (2 * pi);
-  final double segmentAngle = 2 * pi / segments.length;
-  final double invertedAngle = 2 * pi - normalizedAngle;
-  final int segmentIndex = (invertedAngle ~/ segmentAngle) % segments.length;
+  return WheelGeometry.equal(segments.length).indexAt(endRotation, -pi / 2);
+}
 
-  return segmentIndex;
+/// The frame rate the speed limit is designed for. Faster screens show
+/// smaller steps per frame, so they are safe too.
+const double referenceFrameRate = 60;
+
+/// The most a wheel may turn in one frame, as a fraction of a slice.
+///
+/// Above half a slice per frame the eye pairs each slice with its neighbor
+/// behind it and the wheel seems to turn backwards (the "wagon-wheel"
+/// effect). This stays safely below that.
+const double maxSliceFractionPerFrame = 0.4;
+
+/// The largest share of the whole spin that [curve] covers in a single
+/// frame, for a spin lasting [duration].
+double peakFrameFraction(Curve curve, Duration duration) {
+  final int frames =
+      max(1, (duration.inMicroseconds / 1e6 * referenceFrameRate).round());
+  double peak = 0;
+  double previous = curve.transform(0);
+  for (int k = 1; k <= frames; k++) {
+    final double current = curve.transform(k / frames);
+    peak = max(peak, (current - previous).abs());
+    previous = current;
+  }
+  return peak;
+}
+
+/// The farthest (in radians) a wheel with [segmentCount] slices may turn
+/// using [curve] over [duration] without ever moving fast enough to look
+/// like it is turning backwards.
+double maxSpinDistance({
+  required int segmentCount,
+  required Curve curve,
+  required Duration duration,
+}) {
+  final double peak = peakFrameFraction(curve, duration);
+  if (peak <= 0 || segmentCount <= 0) return double.infinity;
+  final double maxStep = maxSliceFractionPerFrame * 2 * pi / segmentCount;
+  return maxStep / peak;
 }

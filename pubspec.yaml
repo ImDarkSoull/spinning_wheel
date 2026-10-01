@@ -1,6 +1,6 @@
 name: spinning_wheel
 description: "A customizable and animated spinning wheel for Flutter, perfect for games, lucky draws, and prize wheels."
-version: 0.0.7
+version: 0.1.0
 homepage: https://github.com/nitesh695/spinning_wheel
 repository: https://github.com/nitesh695/spinning_wheel
 issue_tracker: https://github.com/nitesh695/spinning_wheel/issues

@@ -6,5 +6,6 @@ library spinning_wheel;
 
 export 'models/wheel_segment.dart';
 export 'models/wheel_label_style.dart';
+export 'models/wheel_options.dart';
 export 'spinner_wheel.dart';
 export 'controller/spin_controller.dart';

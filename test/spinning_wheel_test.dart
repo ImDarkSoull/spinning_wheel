@@ -238,7 +238,8 @@ void main() {
         ),
       ));
       expect(tester.takeException(), isNull);
-      expect(tester.getSize(find.byType(SpinnerWheel)), const Size(300, 300));
+      expect(tester.getSize(find.byWidgetPredicate((w) => w is SpinnerWheel)),
+          const Size(300, 300));
     });
 
     testWidgets('label style without text style gets the responsive default',

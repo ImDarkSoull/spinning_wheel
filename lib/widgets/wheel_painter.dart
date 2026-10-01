@@ -1,5 +1,8 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../core/wheel_geometry.dart';
+import '../models/wheel_options.dart';
 import '../models/wheel_segment.dart';
 import '../models/wheel_label_style.dart';
 
@@ -20,12 +23,43 @@ class WheelPainter extends CustomPainter {
   /// Radial padding within segments.
   final EdgeInsets slicePadding;
 
+  /// The angular layout of the slices.
+  final WheelGeometry geometry;
+
+  /// How each slice is filled.
+  final SliceStyle sliceStyle;
+
+  /// Color of the lines between slices and around the wheel.
+  final Color? borderColor;
+
+  /// Width of the lines between slices and around the wheel. 0 draws none.
+  final double borderWidth;
+
+  /// The slice to highlight (e.g. the winner), or null for none. Other
+  /// slices are dimmed.
+  final int? highlightIndex;
+
+  /// Outline color of the highlighted slice.
+  final Color highlightColor;
+
+  /// Direction used to lay out label text.
+  final TextDirection textDirection;
+
   /// Creates a [WheelPainter].
-  WheelPainter(this.segments,
-      {this.imageHeight,
-      this.imageWidth,
-      this.labelStyle,
-      this.slicePadding = EdgeInsets.zero});
+  WheelPainter(
+    this.segments, {
+    this.imageHeight,
+    this.imageWidth,
+    this.labelStyle,
+    this.slicePadding = EdgeInsets.zero,
+    WheelGeometry? geometry,
+    this.sliceStyle = SliceStyle.gradient,
+    this.borderColor,
+    this.borderWidth = 0,
+    this.highlightIndex,
+    this.highlightColor = Colors.white,
+    this.textDirection = TextDirection.ltr,
+  }) : geometry = geometry ?? WheelGeometry.equal(segments.length);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -33,36 +67,40 @@ class WheelPainter extends CustomPainter {
     final double radius = size.width / 2;
     final Rect rect =
         Rect.fromCircle(center: Offset(radius, radius), radius: radius);
-    final double segmentAngle = 2 * pi / segments.length;
-    // Segment 0 starts at the top (where the indicator is) and segments
-    // continue clockwise. Must match `determineSegment`.
-    const double startAngle = -pi / 2;
 
     for (int i = 0; i < segments.length; i++) {
-      _drawSegment(canvas, rect, startAngle + i * segmentAngle, segmentAngle,
-          segments[i]);
-      _drawImage(canvas, radius, startAngle + i * segmentAngle, segmentAngle,
-          segments[i]);
-      _drawLabel(canvas, rect, startAngle + i * segmentAngle, segmentAngle,
-          segments[i]);
+      final double sweep = geometry.sweeps[i];
+      if (sweep <= 0) continue;
+      final double angle = geometry.startAngle(i);
+      _drawSegment(canvas, rect, angle, sweep, segments[i]);
+      _drawImage(canvas, radius, angle, sweep, segments[i]);
+      _drawLabel(canvas, rect, angle, sweep, segments[i]);
     }
+
+    _drawBorders(canvas, rect);
+    _drawHighlight(canvas, rect);
   }
 
   void _drawSegment(Canvas canvas, Rect rect, double angle, double segmentAngle,
       WheelSegment segment) {
-    final Paint segmentPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..shader = RadialGradient(
-        colors: [segment.color.withValues(alpha: 0.7), segment.color],
-        stops: const [0.3, 1.0],
-      ).createShader(rect);
+    final Paint segmentPaint = Paint()..style = PaintingStyle.fill;
+    switch (sliceStyle) {
+      case SliceStyle.gradient:
+        segmentPaint.shader = RadialGradient(
+          colors: [segment.color.withValues(alpha: 0.7), segment.color],
+          stops: const [0.3, 1.0],
+        ).createShader(rect);
+      case SliceStyle.flat:
+        segmentPaint.color = segment.color;
+    }
 
-    canvas.drawArc(rect, angle, segmentAngle, true, segmentPaint);
+    canvas.drawPath(_segmentPath(rect, angle, segmentAngle), segmentPaint);
   }
 
   void _drawImage(Canvas canvas, double radius, double angle,
       double segmentAngle, WheelSegment segment) {
-    if (segment.image != null) {
+    // Segments with a child widget show the widget instead of the image.
+    if (segment.image != null && segment.child == null) {
       // Top padding pushes away from rim, bottom padding pushes away from center
       final double imageRadius =
           (radius * 0.55) - slicePadding.top + slicePadding.bottom;
@@ -90,7 +128,7 @@ class WheelPainter extends CustomPainter {
 
   /// The wedge-shaped outline of a single segment.
   Path _segmentPath(Rect rect, double angle, double segmentAngle) {
-    if (segmentAngle >= 2 * pi) {
+    if (segmentAngle >= 2 * pi - 1e-9) {
       return Path()..addOval(rect);
     }
     return Path()
@@ -121,7 +159,10 @@ class WheelPainter extends CustomPainter {
     canvas
         .rotate(angle + segmentAngle / 2 + pi / 2 + (labelStyle?.angle ?? 0.0));
 
-    final TextStyle? effectiveStyle = labelStyle?.labelStyle;
+    final TextStyle baseStyle = labelStyle?.labelStyle ??
+        const TextStyle(
+            color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold);
+    final TextStyle effectiveStyle = baseStyle.merge(segment.textStyle);
 
     // Calculate available width at this radius minus horizontal padding.
     // The chord only makes sense for slices narrower than a half circle.
@@ -131,13 +172,8 @@ class WheelPainter extends CustomPainter {
     final double availableWidth = max(0.0, baseWidth - slicePadding.horizontal);
 
     TextPainter textPainter = TextPainter(
-      text: TextSpan(
-        text: segment.label,
-        style: effectiveStyle ??
-            const TextStyle(
-                color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-      textDirection: TextDirection.ltr,
+      text: TextSpan(text: segment.label, style: effectiveStyle),
+      textDirection: textDirection,
       textAlign: TextAlign.center,
       ellipsis: overflow == TextOverflow.ellipsis ? '...' : null,
       maxLines: labelStyle?.maxLines,
@@ -163,14 +199,22 @@ class WheelPainter extends CustomPainter {
     final Rect bounds = offset & textPainter.size;
     final double fadeSize = textPainter.preferredLineHeight;
     final bool horizontal = (labelStyle?.maxLines ?? 1) == 1;
+    final bool rtl = textDirection == TextDirection.rtl;
 
     final Shader shader = LinearGradient(
-      begin: horizontal ? Alignment.centerLeft : Alignment.topCenter,
-      end: horizontal ? Alignment.centerRight : Alignment.bottomCenter,
+      begin: horizontal
+          ? (rtl ? Alignment.centerRight : Alignment.centerLeft)
+          : Alignment.topCenter,
+      end: horizontal
+          ? (rtl ? Alignment.centerLeft : Alignment.centerRight)
+          : Alignment.bottomCenter,
       colors: const [Color(0xFFFFFFFF), Color(0x00FFFFFF)],
     ).createShader(horizontal
-        ? Rect.fromLTRB(max(bounds.left, bounds.right - fadeSize), bounds.top,
-            bounds.right, bounds.bottom)
+        ? (rtl
+            ? Rect.fromLTRB(bounds.left, bounds.top,
+                min(bounds.right, bounds.left + fadeSize), bounds.bottom)
+            : Rect.fromLTRB(max(bounds.left, bounds.right - fadeSize),
+                bounds.top, bounds.right, bounds.bottom))
         : Rect.fromLTRB(bounds.left, max(bounds.top, bounds.bottom - fadeSize),
             bounds.right, bounds.bottom));
 
@@ -185,11 +229,66 @@ class WheelPainter extends CustomPainter {
     canvas.restore();
   }
 
+  void _drawBorders(Canvas canvas, Rect rect) {
+    if (borderWidth <= 0) return;
+    final Paint paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = borderWidth
+      ..color = borderColor ?? Colors.white;
+    final int visible = geometry.sweeps.where((s) => s > 0).length;
+    if (visible > 1) {
+      for (int i = 0; i < segments.length; i++) {
+        if (geometry.sweeps[i] <= 0) continue;
+        final double a = geometry.startAngle(i);
+        canvas.drawLine(
+          rect.center,
+          rect.center + Offset(cos(a), sin(a)) * (rect.width / 2),
+          paint,
+        );
+      }
+    }
+    canvas.drawCircle(rect.center, rect.width / 2 - borderWidth / 2, paint);
+  }
+
+  void _drawHighlight(Canvas canvas, Rect rect) {
+    final int? index = highlightIndex;
+    if (index == null || index < 0 || index >= segments.length) return;
+
+    final Paint dim = Paint()..color = const Color(0x73000000);
+    for (int i = 0; i < segments.length; i++) {
+      if (i == index || geometry.sweeps[i] <= 0) continue;
+      canvas.drawPath(
+          _segmentPath(rect, geometry.startAngle(i), geometry.sweeps[i]), dim);
+    }
+
+    final double width = max(3.0, rect.width * 0.015);
+    canvas.save();
+    // Keep the outline inside the slice so it isn't cut off at the rim.
+    final Path path =
+        _segmentPath(rect, geometry.startAngle(index), geometry.sweeps[index]);
+    canvas.clipPath(path);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = width * 2
+        ..color = highlightColor,
+    );
+    canvas.restore();
+  }
+
   @override
   bool shouldRepaint(WheelPainter oldDelegate) =>
       oldDelegate.segments != segments ||
       oldDelegate.labelStyle != labelStyle ||
       oldDelegate.slicePadding != slicePadding ||
       oldDelegate.imageHeight != imageHeight ||
-      oldDelegate.imageWidth != imageWidth;
+      oldDelegate.imageWidth != imageWidth ||
+      !listEquals(oldDelegate.geometry.sweeps, geometry.sweeps) ||
+      oldDelegate.sliceStyle != sliceStyle ||
+      oldDelegate.borderColor != borderColor ||
+      oldDelegate.borderWidth != borderWidth ||
+      oldDelegate.highlightIndex != highlightIndex ||
+      oldDelegate.highlightColor != highlightColor ||
+      oldDelegate.textDirection != textDirection;
 }
